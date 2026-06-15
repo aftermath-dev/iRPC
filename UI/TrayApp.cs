@@ -125,7 +125,7 @@ public class TrayApp : ApplicationContext
     {
         // Try embedded icon.ico first
         var stream = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("iRPC.icon.ico");
+            .GetManifestResourceStream("iRPC.ArtAssets.icon.ico");
         if (stream != null) return new Icon(stream);
 
         // Fall back to a plain green circle
