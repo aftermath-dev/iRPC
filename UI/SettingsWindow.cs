@@ -66,6 +66,12 @@ public class SettingsWindow : Form
 
         y += 8;
 
+        string version = System.Reflection.Assembly.GetExecutingAssembly()
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            is System.Reflection.AssemblyInformationalVersionAttribute[] { Length: > 0 } attrs
+            ? attrs[0].InformationalVersion : "unknown";
+        Controls.Add(new Label { Text = $"v{version}", Left = x, Top = y + 6, AutoSize = true, ForeColor = System.Drawing.SystemColors.GrayText });
+
         var btnSave  = new Button { Text = "Save",  Left = 140, Top = y, Width = 75 };
         var btnClose = new Button { Text = "Close", DialogResult = DialogResult.Cancel, Left = 220, Top = y, Width = 75 };
         Controls.Add(btnSave);
