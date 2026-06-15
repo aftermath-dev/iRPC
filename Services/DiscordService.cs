@@ -94,7 +94,7 @@ public class DiscordService : IDisposable
         {
             LargeIconMode.IracingLogo => "iracing_logo",
             LargeIconMode.IrpcLogo   => "irpc_logo",
-            LargeIconMode.TrackLogo  => AssetKey(data.TrackName) ?? "iracing_logo",
+            LargeIconMode.TrackLogo  => KeyOverrides.Apply(TrackKey(data.TrackName) ?? "iracing_logo"),
             _                        => null,
         };
 
@@ -104,7 +104,7 @@ public class DiscordService : IDisposable
 
         string? smallKey = s.SmallIcon switch
         {
-            SmallIconMode.CarBrand    => AssetKey(data.CarName.Split(' ')[0]),
+            SmallIconMode.CarBrand    => KeyOverrides.Apply(BrandKey(data.CarName) ?? string.Empty) is { Length: > 0 } k ? k : null,
             SmallIconMode.SessionType => SessionTypeKey(data.SessionType),
             _                         => null,
         };
@@ -125,6 +125,15 @@ public class DiscordService : IDisposable
             SmallImageKey  = smallKey,
             SmallImageText = smallText,
         };
+    }
+
+    private static string? TrackKey(string? name) =>
+        AssetKey(name) is { } k ? $"track_{k}" : null;
+
+    private static string? BrandKey(string carName)
+    {
+        string brand = carName.Split(' ')[0];
+        return AssetKey(brand) is { } k ? $"brand_{k}" : null;
     }
 
     private static string? SessionTypeKey(string sessionType) =>
