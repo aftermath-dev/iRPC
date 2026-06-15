@@ -1,0 +1,147 @@
+using System.Drawing;
+using System.Windows.Forms;
+using Microsoft.Win32;
+
+namespace iRPC;
+
+public class TrayApp : ApplicationContext
+{
+    private readonly NotifyIcon _trayIcon;
+    private readonly System.Windows.Forms.Timer _timer;
+    private readonly IracingService _iracing = new();
+    private readonly DiscordService _discord = new();
+    private AppSettings _settings = AppSettings.Load();
+    private bool _testMode;
+
+    public TrayApp()
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("Settings", null, OnSettings);
+        menu.Items.Add("Reconnect Discord", null, (_, _) => _discord.Reconnect());
+        menu.Items.Add("Check for Updates", null, OnCheckForUpdates);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Exit", null, OnExit);
+
+        _trayIcon = new NotifyIcon
+        {
+            Text = "iRPC",
+            Icon = CreateIcon(),
+            ContextMenuStrip = menu,
+            Visible = true,
+        };
+
+        _timer = new System.Windows.Forms.Timer { Interval = 1000 };
+        _timer.Tick += OnTick;
+        _timer.Start();
+
+        ApplyStartup(_settings.LaunchOnStartup);
+
+        // Silent startup check — only notify if an update is available
+        _ = CheckForUpdatesAsync(silent: true);
+    }
+
+    private void OnTick(object? sender, EventArgs e)
+    {
+        SessionData data = _iracing.Poll();
+        _discord.Update(data, _settings);
+    }
+
+    private void OnSettings(object? sender, EventArgs e)
+    {
+        using var win = new SettingsWindow(_settings, newSettings =>
+        {
+            _settings = newSettings;
+            ApplyStartup(_settings.LaunchOnStartup);
+        });
+        win.Icon = _trayIcon.Icon;
+        win.ShowDialog();
+    }
+
+    private async void OnCheckForUpdates(object? sender, EventArgs e) =>
+        await CheckForUpdatesAsync(silent: false);
+
+    private async Task CheckForUpdatesAsync(bool silent)
+    {
+        try
+        {
+            var result = await UpdateChecker.CheckAsync();
+            if (result.HasUpdate)
+            {
+                var answer = MessageBox.Show(
+                    $"v{result.LatestTag} is available (you have v{UpdateChecker.CurrentVersion.ToString(3)}).\n\nOpen the download page?",
+                    "iRPC Update Available",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+
+                if (answer == DialogResult.Yes)
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = result.ReleaseUrl,
+                        UseShellExecute = true,
+                    });
+            }
+            else if (!silent)
+            {
+                MessageBox.Show(
+                    $"You're up to date (v{UpdateChecker.CurrentVersion.ToString(3)}).",
+                    "iRPC",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch
+        {
+            if (!silent)
+                MessageBox.Show("Couldn't reach GitHub. Check your connection and try again.",
+                    "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void OnExit(object? sender, EventArgs e)
+    {
+        _timer.Stop();
+        _discord.Dispose();
+        _iracing.Dispose();
+        _trayIcon.Visible = false;
+        Application.Exit();
+    }
+
+    private static void ApplyStartup(bool enable)
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+        if (key is null) return;
+
+        if (enable)
+            key.SetValue("iRPC", Application.ExecutablePath);
+        else
+            key.DeleteValue("iRPC", throwOnMissingValue: false);
+    }
+
+    private static Icon CreateIcon()
+    {
+        // Try embedded icon.ico first
+        var stream = System.Reflection.Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("iRPC.icon.ico");
+        if (stream != null) return new Icon(stream);
+
+        // Fall back to a plain green circle
+        var bmp = new Bitmap(16, 16);
+        using var g = Graphics.FromImage(bmp);
+        g.Clear(Color.Transparent);
+        g.FillEllipse(new SolidBrush(Color.FromArgb(0, 168, 107)), 1, 1, 14, 14);
+        return Icon.FromHandle(bmp.GetHicon());
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _trayIcon.Dispose();
+            _timer.Dispose();
+            _discord.Dispose();
+            _iracing.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+}
