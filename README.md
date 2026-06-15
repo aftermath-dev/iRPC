@@ -21,7 +21,7 @@ A lightweight Windows system tray app that displays your iRacing session as Disc
 
 ## Installation
 
-1. Download `iRPC.exe` from the [latest release](https://github.com/Mathues-Studios/iRPC/releases/latest)
+1. Download `iRPC.exe` from the [latest release](https://github.com/aftermath-dev/iRPC/releases/latest)
 2. Run it — a tray icon appears in the system tray
 3. Open iRacing and start a session
 
@@ -84,7 +84,7 @@ Right-click the tray icon → **Settings**
 Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8) on Windows.
 
 ```powershell
-git clone https://github.com/Mathues-Studios/iRPC.git
+git clone https://github.com/aftermath-dev/iRPC.git
 cd iRPC
 dotnet run
 ```
