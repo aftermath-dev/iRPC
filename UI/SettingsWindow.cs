@@ -18,6 +18,7 @@ public class SettingsWindow : Form
     private readonly CheckBox _cbElapsedTimer;
     private readonly CheckBox _cbLaunchOnStartup;
     private readonly CheckBox _cbShowGitHubButton;
+    private readonly CheckBox _cbAutoPopulateKeyOverrides;
     private readonly Action<AppSettings> _onSave;
 
     public SettingsWindow(AppSettings current, Action<AppSettings> onSave)
@@ -60,7 +61,8 @@ public class SettingsWindow : Form
         _cbFlag                = MakeCheckbox("Show caution/checkered flag indicator", current.ShowFlag,             x, ref y);
         _cbElapsedTimer        = MakeCheckbox("Show elapsed session timer",            current.ShowElapsedTimer,     x, ref y);
         _cbLaunchOnStartup     = MakeCheckbox("Launch on Windows startup",             current.LaunchOnStartup,      x, ref y);
-        _cbShowGitHubButton    = MakeCheckbox("Show GitHub button",                   current.ShowGitHubButton,     x, ref y);
+        _cbShowGitHubButton          = MakeCheckbox("Show GitHub button",                          current.ShowGitHubButton,          x, ref y);
+        _cbAutoPopulateKeyOverrides  = MakeCheckbox("Auto-populate key overrides from seen tracks", current.AutoPopulateKeyOverrides,  x, ref y);
 
         y += 8;
 
@@ -112,7 +114,8 @@ public class SettingsWindow : Form
             ShowFlag          = _cbFlag.Checked,
             ShowElapsedTimer  = _cbElapsedTimer.Checked,
             LaunchOnStartup   = _cbLaunchOnStartup.Checked,
-            ShowGitHubButton  = _cbShowGitHubButton.Checked,
+            ShowGitHubButton          = _cbShowGitHubButton.Checked,
+            AutoPopulateKeyOverrides  = _cbAutoPopulateKeyOverrides.Checked,
         };
         Settings.Save();
         _onSave(Settings);

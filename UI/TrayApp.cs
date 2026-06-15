@@ -36,6 +36,9 @@ public class TrayApp : ApplicationContext
 
         ApplyStartup(_settings.LaunchOnStartup);
 
+        if (_settings.AutoPopulateKeyOverrides)
+            KeyOverrides.SyncFromTracks();
+
         // Silent startup check — only notify if an update is available
         _ = CheckForUpdatesAsync(silent: true);
     }
