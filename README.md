@@ -25,7 +25,7 @@ A lightweight Windows system tray app that displays your iRacing session as Disc
 2. Run it — a tray icon appears in the system tray
 3. Open iRacing and start a session
 
-No installation required. No .NET runtime needed.
+No installation required. No .NET runtime is needed.
 
 ---
 
@@ -41,18 +41,21 @@ If you want to use your own Discord application:
 
 ### Art Asset Keys
 
-Images are matched by key name. The key is derived from the track or car brand name — lowercase, spaces replaced with underscores.
+Keys follow a prefixed naming convention — lowercase, spaces replaced with underscores.
 
-| Type | Example name | Key |
-|---|---|---|
-| Track | Spa | `spa` |
-| Track (with config) | Watkins Glen Boot | `watkins_glen_boot` |
-| Car brand | Ferrari 296 GT3 | `ferrari` |
-| Session type | Practice | `icon_practice` |
+| Type         | Example name      | Key               |
+|--------------|-------------------|-------------------|
+| Track        | Spa               | `track_spa`       |
+| Car brand    | Ferrari 296 GT3   | `brand_ferrari`   |
+| Session icon | Practice          | `icon_practice`   |
 
-Keys used for session type icons: `icon_practice`, `icon_qualify`, `icon_race`, `icon_test_drive`, `icon_time_trial`
+Session type icon keys: `icon_practice`, `icon_qualify`, `icon_race`, `icon_test_drive`, `icon_time_trial`
 
-Check `%AppData%\iRPC\iRPC.log` to see exactly which keys the app is looking for.
+Static keys: `iracing_logo`, `irpc_logo`
+
+If a track has multiple configs and you want them all to share one image, use `key_overrides.json` to remap — e.g. `track_watkins_glen_boot` → `track_watkins_glen`.
+
+Check `%AppData%\iRPC\iRPC.log` to see exactly which keys the app is resolving. You can also remap any key by editing `%AppData%\iRPC\key_overrides.json`.
 
 ---
 
@@ -60,19 +63,19 @@ Check `%AppData%\iRPC\iRPC.log` to see exactly which keys the app is looking for
 
 Right-click the tray icon → **Settings**
 
-| Setting | Description |
-|---|---|
-| Discord App ID | The Discord application to use for Rich Presence |
-| Large icon | iRacing logo, iRPC logo, or track logo |
-| Small icon | Off, car brand logo, or session type icon |
-| Show car name | Display the current car in the presence state |
-| Show lap progress | Display current lap / total laps |
-| Show position | Display race position (race sessions only) |
-| Show time remaining | Display remaining session time |
-| Show flag indicator | Display caution or checkered flag status |
-| Show elapsed timer | Display elapsed session time as a Discord timestamp |
-| Show GitHub button | Show a link to this repo on the presence |
-| Launch on startup | Start iRPC automatically with Windows |
+| Setting             | Description                                         |
+|---------------------|-----------------------------------------------------|
+| Discord App ID      | The Discord application to use for Rich Presence    |
+| Large icon          | iRacing logo, iRPC logo, or track logo              |
+| Small icon          | Off, car brand logo, or session type icon           |
+| Show car name       | Display the current car in the presence state       |
+| Show lap progress   | Display current lap / total laps                    |
+| Show position       | Display race position (race sessions only)          |
+| Show time remaining | Display remaining session time                      |
+| Show flag indicator | Display caution or checkered flag status            |
+| Show elapsed timer  | Display elapsed session time as a Discord timestamp |
+| Show GitHub button  | Show a link to this repo on the presence            |
+| Launch on startup   | Start iRPC automatically with Windows               |
 
 ---
 
@@ -94,8 +97,11 @@ dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true 
 
 ---
 
-## Logs
+## Logs & Data Files
 
-iRPC writes a debug log to `%AppData%\iRPC\iRPC.log` on every poll tick and YAML update. Useful for diagnosing missing icons or unexpected values.
-
-A list of every unique track seen is saved to `%AppData%\iRPC\tracks.txt`.
+| File | Contents |
+|---|---|
+| `%AppData%\iRPC\iRPC.log` | Debug log — poll ticks, YAML updates, asset keys resolved |
+| `%AppData%\iRPC\tracks.txt` | Every unique track seen, auto-appended on each new session |
+| `%AppData%\iRPC\key_overrides.json` | Custom asset key remappings (e.g. `track_imola_full` → `track_imola`) |
+| `%AppData%\iRPC\settings.json` | App settings |
