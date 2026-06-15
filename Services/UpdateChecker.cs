@@ -7,8 +7,8 @@ namespace iRPC;
 public static class UpdateChecker
 {
     private static readonly HttpClient _http = new();
-    private const string ApiUrl     = "https://api.github.com/repos/Mathues-Studios/iRPC/releases/latest";
-    private const string ReleasesUrl = "https://github.com/Mathues-Studios/iRPC/releases/latest";
+    private const string ApiUrl     = "https://api.github.com/repos/aftermath-dev/iRPC/releases/latest";
+    private const string ReleasesUrl = "https://github.com/aftermath-dev/iRPC/releases/latest";
 
     public static Version CurrentVersion =>
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);

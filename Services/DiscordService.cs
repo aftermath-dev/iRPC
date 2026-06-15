@@ -32,7 +32,7 @@ public class DiscordService : IDisposable
             State   = Truncate(BuildState(data, settings), 128),
             Assets  = BuildAssets(data, settings),
             Buttons = settings.ShowGitHubButton
-                ? [new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/Mathues-Studios/iRPC" }]
+                ? [new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" }]
                 : null,
         };
 
