@@ -22,7 +22,8 @@ public static class UpdateChecker
         string tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
         string url = doc.RootElement.GetProperty("html_url").GetString() ?? ReleasesUrl;
 
-        if (!Version.TryParse(tag.TrimStart('v'), out var latest))
+        string versionPart = tag.TrimStart('v').Split('-')[0];
+        if (!Version.TryParse(versionPart, out var latest))
             return new UpdateResult(false, tag, url);
 
         return new UpdateResult(latest > CurrentVersion, tag, url);
