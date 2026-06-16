@@ -11,7 +11,6 @@ public class TrayApp : ApplicationContext
     private readonly IracingService _iracing = new();
     private readonly DiscordService _discord = new();
     private AppSettings _settings = AppSettings.Load();
-    private bool _testMode;
 
     public TrayApp()
     {
@@ -33,6 +32,11 @@ public class TrayApp : ApplicationContext
         _timer = new System.Windows.Forms.Timer { Interval = 1000 };
         _timer.Tick += OnTick;
         _timer.Start();
+
+        _trayIcon.BalloonTipTitle = "iRPC";
+        _trayIcon.BalloonTipText  = "iRPC is running in the system tray.";
+        _trayIcon.BalloonTipIcon  = ToolTipIcon.Info;
+        _trayIcon.ShowBalloonTip(3000);
 
         ApplyStartup(_settings.LaunchOnStartup);
 
