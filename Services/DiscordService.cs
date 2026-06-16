@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DiscordRPC;
 
 namespace iRPC;
@@ -13,9 +14,7 @@ public class DiscordService : IDisposable
         EnsureClient(settings.DiscordAppId);
         if (_client is null) return;
 
-        bool shouldHide = !data.IsConnected;
-
-        if (shouldHide)
+        if (!data.IsConnected)
         {
             if (_presenceActive)
             {
@@ -26,10 +25,11 @@ public class DiscordService : IDisposable
             return;
         }
 
+        var cfg = settings.GetTemplate(data.SessionType);
         var presence = new RichPresence
         {
-            Details = Truncate(BuildDetails(data), 128),
-            State   = Truncate(BuildState(data, settings), 128),
+            Details = Truncate(ApplyTemplate(cfg.DetailsTemplate, data), 128),
+            State   = Truncate(ApplyTemplate(cfg.StateTemplate, data), 128),
             Assets  = BuildAssets(data, settings),
             Buttons = settings.ShowGitHubButton
                 ? [new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" }]
@@ -44,123 +44,136 @@ public class DiscordService : IDisposable
         _client.Invoke();
     }
 
-    private static string BuildDetails(SessionData data)
+    public static string ApplyTemplate(string template, SessionData data)
     {
-        var parts = new List<string>(3);
-        if (!string.IsNullOrEmpty(data.SessionType)) parts.Add(data.SessionType);
-        if (!string.IsNullOrEmpty(data.TrackName))   parts.Add(data.TrackName);
-        if (!string.IsNullOrEmpty(data.TrackConfig)) parts.Add(data.TrackConfig);
-        return string.Join(" - ", parts);
-    }
-
-    private static string BuildState(SessionData data, AppSettings s)
-    {
-        var parts = new List<string>(5);
-
-        if (s.ShowCarName && !string.IsNullOrEmpty(data.CarName))
-            parts.Add(data.CarName);
-
-        bool isRace = data.SessionType.Equals("Race", StringComparison.OrdinalIgnoreCase);
-        if (s.ShowPosition && isRace && data.Position > 0)
-            parts.Add($"P{data.Position}");
-
-        if (s.ShowLapProgress && data.CurrentLap > 0)
-        {
-            // 32767 is iRacing's sentinel for unlimited laps
-            string lap = data.LapsRemain != 32767 && data.LapsRemain >= 0
+        string lapTotal = data.CurrentLap > 0
+            ? (data.LapsRemain is > 0 and < 32767
                 ? $"Lap {data.CurrentLap}/{data.CurrentLap + data.LapsRemain}"
-                : $"Lap {data.CurrentLap}";
-            parts.Add(lap);
-        }
+                : $"Lap {data.CurrentLap}")
+            : string.Empty;
 
-        if (s.ShowTimeRemaining && data.TimeRemaining > 0 && data.TimeRemaining < 86400)
-        {
-            var ts = TimeSpan.FromSeconds(data.TimeRemaining);
-            parts.Add(ts.Hours > 0 ? $"{ts:h\\:mm\\:ss}" : $"{ts:m\\:ss}");
-        }
+        string timeRemain = data.TimeRemaining > 0 && data.TimeRemaining < 86400
+            ? TimeSpan.FromSeconds(data.TimeRemaining) is var ts
+                ? ts.Hours > 0 ? ts.ToString(@"h\:mm\:ss") : ts.ToString(@"m\:ss")
+                : string.Empty
+            : string.Empty;
 
-        if (s.ShowFlag)
-        {
-            if (data.IsCheckered)   parts.Add("Checkered");
-            else if (data.IsCaution) parts.Add("Caution");
-        }
+        string result = template
+            .Replace("{session}",      data.SessionType)
+            .Replace("{track}",        data.TrackName)
+            .Replace("{config}",       data.TrackConfig)
+            .Replace("{car}",          data.CarName)
+            .Replace("{position}",     data.Position > 0 ? $"P{data.Position}" : string.Empty)
+            .Replace("{lap}",          data.CurrentLap > 0 ? $"Lap {data.CurrentLap}" : string.Empty)
+            .Replace("{laps_total}",   lapTotal)
+            .Replace("{laps_remain}",  data.LapsRemain is > 0 and < 32767 ? $"{data.LapsRemain} laps left" : string.Empty)
+            .Replace("{time_remain}",  timeRemain)
+            .Replace("{speed_kmh}",    $"{data.Speed * 3.6f:F0} km/h")
+            .Replace("{speed_mph}",    $"{data.Speed * 2.237f:F0} mph")
+            .Replace("{fuel}",         $"{data.FuelLevel:F1}L")
+            .Replace("{fuel_pct}",     $"{data.FuelPercent * 100:F0}%")
+            .Replace("{flag}",         data.IsCheckered ? "Checkered" : data.IsCaution ? "Caution" : string.Empty)
+            .Replace("{pit}",          data.OnPitRoad ? "In Pits" : string.Empty)
+            .Replace("{garage}",       data.IsInGarage ? "In Garage" : string.Empty);
 
-        return string.Join(" | ", parts);
+        return CleanResult(result);
     }
+
+    private static string CleanResult(string s)
+    {
+        // Collapse consecutive | separators
+        s = Regex.Replace(s, @"(\s*\|\s*){2,}", " | ");
+        s = s.Trim().TrimStart('|').TrimEnd('|').Trim();
+        // Collapse consecutive space-dash separators (empty middle placeholder, e.g. "A -  - B" → "A - B")
+        s = Regex.Replace(s, @"(\s+-){2,}\s*", " - ");
+        // Trim trailing separators
+        s = Regex.Replace(s, @"\s+[-|]\s*$", "").Trim();
+        return s;
+    }
+
+    private const string AssetBase =
+        "https://raw.githubusercontent.com/aftermath-dev/iRPC/main/ArtAssets";
 
     private static Assets BuildAssets(SessionData data, AppSettings s)
     {
-        string? largeKey = s.LargeIcon switch
+        string? largeUrl = s.LargeIcon switch
         {
-            LargeIconMode.IracingLogo => "iracing_logo",
-            LargeIconMode.IrpcLogo   => "irpc_logo",
-            LargeIconMode.TrackLogo  => KeyOverrides.Apply(TrackKey(data.TrackName) ?? "iracing_logo"),
+            LargeIconMode.IracingLogo => $"{AssetBase}/Icons/iracing_logo.png",
+            LargeIconMode.IrpcLogo   => $"{AssetBase}/Icons/irpc_logo.png",
+            LargeIconMode.TrackLogo  => TrackUrl(data.TrackName),
             _                        => null,
         };
 
-        string largeText = string.IsNullOrEmpty(data.TrackConfig)
-            ? data.TrackName
-            : $"{data.TrackName} – {data.TrackConfig}";
-
-        string? smallKey = s.SmallIcon switch
+        string? smallUrl = s.SmallIcon switch
         {
-            SmallIconMode.CarBrand    => KeyOverrides.Apply(BrandKey(data.CarName) ?? string.Empty) is { Length: > 0 } k ? k : null,
-            SmallIconMode.SessionType => SessionTypeKey(data.SessionType),
+            SmallIconMode.CarBrand    => BrandUrl(data.CarName),
+            SmallIconMode.SessionType => SessionIconUrl(data.SessionType),
             _                         => null,
         };
 
-        string? smallText = s.SmallIcon switch
-        {
-            SmallIconMode.CarBrand    => data.CarName,
-            SmallIconMode.SessionType => data.SessionType,
-            _                         => null,
-        };
+        string largeText = CleanResult(ApplyTemplate(s.LargeTextTemplate, data));
+        string? smallText = s.SmallIcon != SmallIconMode.Off
+            ? CleanResult(ApplyTemplate(s.SmallTextTemplate, data)) is { Length: > 0 } st ? st : null
+            : null;
 
-        Logger.Log($"Assets — large={largeKey} small={smallKey}");
+        Logger.Log($"Assets — large={largeUrl} small={smallUrl}");
 
         return new Assets
         {
-            LargeImageKey  = largeKey,
+            LargeImageKey  = largeUrl,
             LargeImageText = largeText,
-            SmallImageKey  = smallKey,
+            SmallImageKey  = smallUrl,
             SmallImageText = smallText,
         };
     }
 
-    private static string? TrackKey(string? name) =>
-        AssetKey(name) is { } k ? $"track_{k}" : null;
-
-    private static string? BrandKey(string carName)
+    private static string? TrackUrl(string? name)
     {
-        string brand = carName.Split(' ')[0];
-        return AssetKey(brand) is { } k ? $"brand_{k}" : null;
+        if (AssetKey(name) is not { } k) return null;
+        string mapped = KeyOverrides.Apply($"track_{k}");
+        return $"{AssetBase}/Tracks/{mapped}.png";
     }
 
-    private static string? SessionTypeKey(string sessionType) =>
+    private static string? BrandUrl(string carName)
+    {
+        string brand = carName.Split(' ')[0];
+        if (AssetKey(brand) is not { } k) return null;
+        string mapped = KeyOverrides.Apply($"brand_{k}");
+        return $"{AssetBase}/Brands/{mapped}.png";
+    }
+
+    private static string? SessionIconUrl(string sessionType) =>
         sessionType.ToLowerInvariant() switch
         {
-            "practice"   => "icon_practice",
-            "qualify"    => "icon_qualify",
-            "race"       => "icon_race",
-            "test drive" => "icon_test_drive",
-            "time trial" => "icon_time_trial",
+            "practice"   => $"{AssetBase}/Icons/icon_practice.png",
+            "qualify"    => $"{AssetBase}/Icons/icon_qualify.png",
+            "race"       => $"{AssetBase}/Icons/icon_race.png",
+            "test drive" => $"{AssetBase}/Icons/icon_test_drive.png",
+            "time trial" => $"{AssetBase}/Icons/icon_time_trial.png",
             _            => null,
         };
 
-    // Converts a display name to a Discord asset key: lowercase, spaces→underscores,
-    // strips everything else, truncated to 32 chars. Returns null if result is empty
-    // (Discord will just show nothing for that slot).
     private static string? AssetKey(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         var key = new System.Text.StringBuilder();
         foreach (char c in name.ToLowerInvariant())
         {
-            if (char.IsAsciiLetterOrDigit(c)) key.Append(c);
-            else if (c is ' ' or '_' or '-') key.Append('_');
+            // Fold accented/umlauted characters to their ASCII base
+            char n = c switch
+            {
+                'ü' or 'ú' or 'ù' or 'û' => 'u',
+                'ö' or 'ó' or 'ò' or 'ô' => 'o',
+                'ä' or 'á' or 'à' or 'â' => 'a',
+                'é' or 'è' or 'ê' or 'ë' => 'e',
+                'ï' or 'í' or 'ì' or 'î' => 'i',
+                'ñ' => 'n', 'ç' => 'c', 'ß' => 's',
+                _ => c,
+            };
+            if (char.IsAsciiLetterOrDigit(n)) key.Append(n);
+            else if (n is ' ' or '_' or '-') key.Append('_');
         }
-        // Collapse repeated underscores
-        string result = System.Text.RegularExpressions.Regex.Replace(key.ToString(), "_+", "_").Trim('_');
+        string result = Regex.Replace(key.ToString(), "_+", "_").Trim('_');
         return result.Length == 0 ? null : result[..Math.Min(result.Length, 32)];
     }
 
@@ -174,7 +187,6 @@ public class DiscordService : IDisposable
     private void EnsureClient(string appId)
     {
         if (_client != null && _currentAppId == appId) return;
-
         _client?.Dispose();
         _client = new DiscordRpcClient(appId);
         _client.Initialize();
