@@ -30,6 +30,10 @@ public class IracingService : IDisposable
         data.TimeRemaining = GetFloat("SessionTimeRemain");
         data.IsCaution = (sessionFlags & 0xC000) != 0;   // Caution | CautionWaving
         data.IsCheckered = (sessionFlags & 0x0001) != 0;
+        data.Speed = (float)GetFloat("Speed");
+        data.FuelLevel = (float)GetFloat("FuelLevel");
+        data.FuelPercent = (float)GetFloat("FuelLevelPct");
+        data.OnPitRoad = GetBool("OnPitRoad");
 
         int carIdx = GetInt("PlayerCarIdx");
 
@@ -72,13 +76,30 @@ public class IracingService : IDisposable
 
     private void RefreshStaticData(string yaml, int sessionNum)
     {
-        string? shortName = IracingYaml.GetValue(yaml, "TrackDisplayShortName");
-        // Reject garbage values that contain a colon
-        _trackName = (shortName != null && !shortName.Contains(':'))
-            ? shortName
-            : (IracingYaml.GetValue(yaml, "TrackDisplayName") ?? string.Empty);
-        string? config = IracingYaml.GetValue(yaml, "TrackConfigName");
+        string? shortName   = IracingYaml.GetValue(yaml, "TrackDisplayShortName");
+        string? displayName = IracingYaml.GetValue(yaml, "TrackDisplayName");
+        string? config      = IracingYaml.GetValue(yaml, "TrackConfigName");
+        string? internalKey = IracingYaml.GetValue(yaml, "TrackName");  // e.g. "nurburgring combined"
+
+        Logger.Log($"YAML raw — short='{shortName}' display='{displayName}' config='{config}' key='{internalKey}'");
+
         _trackConfig = (config != null && !config.Contains(':')) ? config : string.Empty;
+
+        // TrackDisplayShortName can sometimes be the layout name (same as config) rather than the base
+        // track name — particularly for multi-layout tracks like Nürburgring Combined.
+        // Prefer DisplayName (the reliable full name), fall back to ShortName if it's distinct,
+        // then fall back to capitalising the internal TrackName key.
+        bool displayOk = displayName != null && !displayName.Contains(':') && displayName != _trackConfig;
+        bool shortOk   = shortName   != null && !shortName.Contains(':')   && shortName   != _trackConfig;
+
+        if (displayOk)
+            _trackName = displayName!;
+        else if (shortOk)
+            _trackName = shortName!;
+        else if (internalKey != null && !internalKey.Contains(':'))
+            _trackName = System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(internalKey.Replace('_', ' '));
+        else
+            _trackName = string.Empty;
     }
 
     private static string FormatSessionType(string? raw)

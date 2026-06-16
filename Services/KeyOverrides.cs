@@ -58,8 +58,15 @@ public static class KeyOverrides
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<Dictionary<string, string>>(
+            {
+                var map = JsonSerializer.Deserialize<Dictionary<string, string>>(
                     File.ReadAllText(FilePath)) ?? new();
+                bool changed = false;
+                foreach (var kv in Defaults())
+                    if (map.TryAdd(kv.Key, kv.Value)) changed = true;
+                if (changed) Save(map);
+                return map;
+            }
 
             var defaults = Defaults();
             Save(defaults);
@@ -89,6 +96,19 @@ public static class KeyOverrides
 
     private static Dictionary<string, string> Defaults() => new()
     {
-        ["track_imola_full"] = "track_imola",
+        // Tracks — map auto-generated keys to ArtAssets/Tracks filenames
+        ["track_spa_francorchamps"]              = "track_spa",
+        ["track_nurburgring_combined"]           = "track_nurburgring",
+        ["track_autodromo_nazionale_monza"]      = "track_monza",
+        ["track_daytona_international_speedway"] = "track_daytona",
+        ["track_autodromo_jose_carlos_pace"]     = "track_interlagos",
+        ["track_circuit_de_ledenon"]             = "track_ledenon",
+        ["track_long_beach_street_circuit"]      = "track_long_beach",
+        ["track_adelaide_street_circuit"]        = "track_adelaide",
+        ["track_algarve_international_circuit"]  = "track_algarve",
+        ["track_imola_full"]                     = "track_imola",
+        ["track_suzuka_international_racing_course"] = "track_suzuka",
+        // Brands
+        ["brand_mx_5"] = "brand_mazda",
     };
 }
