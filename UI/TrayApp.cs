@@ -11,6 +11,7 @@ public class TrayApp : ApplicationContext
     private readonly IracingService _iracing = new();
     private readonly DiscordService _discord = new();
     private AppSettings _settings = AppSettings.Load();
+    private readonly Queue<(DateTime Time, SessionData Data)> _pollBuffer = new();
 
     public TrayApp()
     {
@@ -38,6 +39,7 @@ public class TrayApp : ApplicationContext
         _trayIcon.BalloonTipIcon  = ToolTipIcon.Info;
         _trayIcon.ShowBalloonTip(3000);
 
+        Logger.Enabled = _settings.DebugMode;
         ApplyStartup(_settings.LaunchOnStartup);
 
         if (_settings.AutoPopulateKeyOverrides)
@@ -51,6 +53,8 @@ public class TrayApp : ApplicationContext
     {
         SessionData data = _iracing.Poll();
         _discord.Update(data, _settings);
+        _pollBuffer.Enqueue((DateTime.Now, data));
+        if (_pollBuffer.Count > 5) _pollBuffer.Dequeue();
     }
 
     private void OnSettings(object? sender, EventArgs e)
@@ -58,8 +62,9 @@ public class TrayApp : ApplicationContext
         using var win = new SettingsWindow(_settings, newSettings =>
         {
             _settings = newSettings;
+            Logger.Enabled = _settings.DebugMode;
             ApplyStartup(_settings.LaunchOnStartup);
-        });
+        }, () => _pollBuffer.ToList());
         win.Icon = _trayIcon.Icon;
         win.ShowDialog();
     }

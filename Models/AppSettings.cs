@@ -23,6 +23,7 @@ public class AppSettings
     public bool LaunchOnStartup { get; set; } = false;
     public bool ShowGitHubButton { get; set; } = true;
     public bool AutoPopulateKeyOverrides { get; set; } = true;
+    public bool DebugMode { get; set; } = false;
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public LargeIconMode LargeIcon { get; set; } = LargeIconMode.TrackLogo;

@@ -55,13 +55,17 @@ public class SettingsWindow : Form
     private readonly CheckBox _cbLaunchOnStartup;
     private readonly CheckBox _cbShowGitHubButton;
     private readonly CheckBox _cbAutoPopulateKeyOverrides;
+    private readonly CheckBox _cbDebugMode;
 
     private readonly Action<AppSettings> _onSave;
+    private readonly Func<List<(DateTime Time, SessionData Data)>> _getTelemetry;
 
-    public SettingsWindow(AppSettings current, Action<AppSettings> onSave)
+    public SettingsWindow(AppSettings current, Action<AppSettings> onSave,
+        Func<List<(DateTime Time, SessionData Data)>> getTelemetry)
     {
-        _onSave  = onSave;
-        Settings = current;
+        _onSave       = onSave;
+        _getTelemetry = getTelemetry;
+        Settings      = current;
 
         _templates = current.SessionTemplates.ToDictionary(
             kv => kv.Key,
@@ -161,6 +165,24 @@ public class SettingsWindow : Form
         _cbShowGitHubButton         = Cb(scroll, "Show GitHub button",                     current.ShowGitHubButton,         x, ref y);
         _cbAutoPopulateKeyOverrides = Cb(scroll, "Auto-populate key overrides from tracks", current.AutoPopulateKeyOverrides, x, ref y);
 
+        // ── Debug section ────────────────────────────────────────
+        Divider(scroll, x, ref y);
+        Section(scroll, "Debug", x, ref y);
+
+        _cbDebugMode = Cb(scroll, "Debug logging  (writes iRPC.log)", current.DebugMode, x, ref y);
+
+        var btnSnap = new Button
+        {
+            Text = "Export Telemetry Snapshot",
+            Left = x, Top = y, Width = 210, Height = 26,
+            FlatStyle = FlatStyle.Flat, BackColor = BgClose, ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9f), Cursor = Cursors.Hand,
+        };
+        btnSnap.FlatAppearance.BorderSize = 0;
+        btnSnap.Click += OnExportTelemetry;
+        scroll.Controls.Add(btnSnap);
+        y += 34;
+
         // ── Bottom bar ───────────────────────────────────────────
         var bar = new Panel { Left = 0, Top = 666, Width = 520, Height = 44, BackColor = Color.FromArgb(30, 31, 34) };
 
@@ -253,11 +275,57 @@ public class SettingsWindow : Form
             LaunchOnStartup          = _cbLaunchOnStartup.Checked,
             ShowGitHubButton         = _cbShowGitHubButton.Checked,
             AutoPopulateKeyOverrides = _cbAutoPopulateKeyOverrides.Checked,
+            DebugMode                = _cbDebugMode.Checked,
             SessionTemplates         = _templates,
         };
         Settings.Save();
         _onSave(Settings);
         ShowSavedFeedback();
+    }
+
+    private void OnExportTelemetry(object? sender, EventArgs e)
+    {
+        var polls = _getTelemetry();
+        if (polls.Count == 0)
+        {
+            MessageBox.Show("No telemetry data yet — open iRacing first.",
+                "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"iRPC Telemetry Snapshot — {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine(new string('─', 52));
+        sb.AppendLine($"Last {polls.Count} poll tick(s) at 1 Hz");
+
+        foreach (var (time, d) in polls)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"[{time:HH:mm:ss}]");
+            sb.AppendLine($"  Connected    {d.IsConnected}");
+            sb.AppendLine($"  On Track     {d.IsOnTrack}");
+            sb.AppendLine($"  Is Replay    {d.IsReplay}");
+            sb.AppendLine($"  Session      {d.SessionType}");
+            sb.AppendLine($"  Track        {d.TrackName}{(d.TrackConfig.Length > 0 ? $" / {d.TrackConfig}" : "")}");
+            sb.AppendLine($"  Car          {d.CarName}");
+            sb.AppendLine($"  Position     {(d.Position > 0 ? $"P{d.Position}" : "—")}");
+            sb.AppendLine($"  Lap          {d.CurrentLap}{(d.LapsRemain is > 0 and < 32767 ? $" / {d.CurrentLap + d.LapsRemain}  ({d.LapsRemain} left)" : "")}");
+            sb.AppendLine($"  Time Left    {(d.TimeRemaining > 0 && d.TimeRemaining < 86400 ? TimeSpan.FromSeconds(d.TimeRemaining).ToString(@"h\:mm\:ss") : "—")}");
+            sb.AppendLine($"  Speed        {d.Speed * 3.6f:F1} km/h  /  {d.Speed * 2.237f:F1} mph");
+            sb.AppendLine($"  Fuel         {d.FuelLevel:F2} L  ({d.FuelPercent * 100:F1}%)");
+            sb.AppendLine($"  Caution      {d.IsCaution}");
+            sb.AppendLine($"  Checkered    {d.IsCheckered}");
+            sb.AppendLine($"  On Pit Road  {d.OnPitRoad}");
+            sb.AppendLine($"  In Garage    {d.IsInGarage}");
+        }
+
+        string path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "iRPC", "telemetry_snapshot.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, sb.ToString());
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            { FileName = path, UseShellExecute = true });
     }
 
     private void ShowSavedFeedback()

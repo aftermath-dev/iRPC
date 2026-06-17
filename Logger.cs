@@ -7,8 +7,11 @@ public static class Logger
         "iRPC", "iRPC.log");
     private static readonly object _lock = new();
 
+    public static bool Enabled { get; set; } = false;
+
     public static void Log(string message)
     {
+        if (!Enabled) return;
         try
         {
             lock (_lock)
