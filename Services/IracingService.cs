@@ -8,6 +8,7 @@ public class IracingService : IDisposable
     private string? _lastYaml;
     private string _trackName = string.Empty;
     private string _trackConfig = string.Empty;
+    private string _trackCodeName = string.Empty;
     private int _lastSessionNum = -1;
     private DateTime? _sessionStartUtc;
 
@@ -43,11 +44,15 @@ public class IracingService : IDisposable
             _lastYaml = yaml;
             RefreshStaticData(yaml, sessionNum);
 
+            string? carName = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort");
+            string? carCodeName = IracingYaml.GetDriverValue(yaml, carIdx, "CarPath");
+
             Logger.Log($"YAML update — Track={_trackName} Config={_trackConfig} " +
                        $"SessionType={IracingYaml.GetSessionValue(yaml, sessionNum, "SessionType")} " +
-                       $"Car={IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort")} " +
+                       $"Car={carName} CarPath={carCodeName} " +
                        $"SessionNum={sessionNum} CarIdx={carIdx}");
-            TrackCollector.Record(_trackName, _trackConfig);
+            TrackCollector.Record(_trackName, _trackConfig, _trackCodeName);
+            if (carName != null) CarCollector.Record(carName, carCodeName ?? string.Empty);
         }
 
         if (sessionNum != _lastSessionNum)
@@ -83,6 +88,7 @@ public class IracingService : IDisposable
 
         Logger.Log($"YAML raw — short='{shortName}' display='{displayName}' config='{config}' key='{internalKey}'");
 
+        _trackCodeName = (internalKey != null && !internalKey.Contains(':')) ? internalKey : string.Empty;
         _trackConfig = (config != null && !config.Contains(':')) ? config : string.Empty;
 
         // TrackDisplayShortName can sometimes be the layout name (same as config) rather than the base

@@ -101,7 +101,7 @@ public static class KeyOverrides
         ["track_gesamtstrecke_24h"]              = "track_nurburgring",
         ["track_gesamtstrecke_vln"]              = "track_nurburgring",
         ["track_gesamtstrecke_long"]             = "track_nurburgring",
-        ["track_gesamtstrecke_short"]              = "track_nurburgring",
+        ["track_gesamtstrecke_short"]            = "track_nurburgring",
         // Brands
         ["brand_mx_5"] = "brand_mazda",
     };

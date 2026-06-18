@@ -31,10 +31,10 @@ public class SettingsWindow : Form
     private static readonly Color GreenSaved  = Color.FromArgb(87, 242, 135);
 
     private static readonly string[] SessionKeys =
-        ["Default", "Practice", "Qualify", "Race", "Test Drive", "Time Trial"];
+        ["Practice", "Qualify", "Race", "Test Drive", "Time Trial"];
 
     private readonly Dictionary<string, SessionPresenceConfig> _templates;
-    private string _currentSessionKey = "Default";
+    private string _currentSessionKey = "Practice";
 
     private readonly Label    _lblSaved;
     private readonly System.Windows.Forms.Timer _fadeTimer;
@@ -56,6 +56,7 @@ public class SettingsWindow : Form
     private readonly CheckBox _cbShowGitHubButton;
     private readonly CheckBox _cbAutoPopulateKeyOverrides;
     private readonly CheckBox _cbDebugMode;
+    private readonly CheckBox _cbTrackAndCarLogging;
 
     private readonly Action<AppSettings> _onSave;
     private readonly Func<List<(DateTime Time, SessionData Data)>> _getTelemetry;
@@ -170,6 +171,7 @@ public class SettingsWindow : Form
         Section(scroll, "Debug", x, ref y);
 
         _cbDebugMode = Cb(scroll, "Debug logging  (writes iRPC.log)", current.DebugMode, x, ref y);
+        _cbTrackAndCarLogging = Cb(scroll, "Log new tracks/cars  (writes tracks.txt / cars.txt)", current.TrackAndCarLogging, x, ref y);
 
         var btnSnap = new Button
         {
@@ -247,7 +249,7 @@ public class SettingsWindow : Form
         var data = new SessionData
         {
             IsConnected = true, IsOnTrack = true,
-            SessionType = _currentSessionKey == "Default" ? "Race" : _currentSessionKey,
+            SessionType = _currentSessionKey,
             TrackName = "Spa-Francorchamps", TrackConfig = "Full",
             CarName = "Ferrari 488 GT3",
             Position = 3, CurrentLap = 12, LapsRemain = 8,
@@ -276,6 +278,7 @@ public class SettingsWindow : Form
             ShowGitHubButton         = _cbShowGitHubButton.Checked,
             AutoPopulateKeyOverrides = _cbAutoPopulateKeyOverrides.Checked,
             DebugMode                = _cbDebugMode.Checked,
+            TrackAndCarLogging       = _cbTrackAndCarLogging.Checked,
             SessionTemplates         = _templates,
         };
         Settings.Save();

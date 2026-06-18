@@ -40,6 +40,8 @@ public class TrayApp : ApplicationContext
         _trayIcon.ShowBalloonTip(3000);
 
         Logger.Enabled = _settings.DebugMode;
+        TrackCollector.Enabled = _settings.TrackAndCarLogging;
+        CarCollector.Enabled = _settings.TrackAndCarLogging;
         ApplyStartup(_settings.LaunchOnStartup);
 
         if (_settings.AutoPopulateKeyOverrides)
@@ -63,6 +65,8 @@ public class TrayApp : ApplicationContext
         {
             _settings = newSettings;
             Logger.Enabled = _settings.DebugMode;
+            TrackCollector.Enabled = _settings.TrackAndCarLogging;
+            CarCollector.Enabled = _settings.TrackAndCarLogging;
             ApplyStartup(_settings.LaunchOnStartup);
         }, () => _pollBuffer.ToList());
         win.Icon = _trayIcon.Icon;
@@ -80,17 +84,30 @@ public class TrayApp : ApplicationContext
             if (result.HasUpdate)
             {
                 var answer = MessageBox.Show(
-                    $"v{result.LatestTag} is available (you have v{UpdateChecker.CurrentVersion.ToString(3)}).\n\nOpen the download page?",
+                    $"v{result.LatestTag} is available (you have v{UpdateChecker.CurrentVersion.ToString(3)}).\n\nDownload and install it now? iRPC will restart.",
                     "iRPC Update Available",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information);
 
                 if (answer == DialogResult.Yes)
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    if (result.AssetUrl is null)
                     {
-                        FileName = result.ReleaseUrl,
-                        UseShellExecute = true,
-                    });
+                        MessageBox.Show(
+                            "Couldn't find a downloadable installer for this release. Opening the download page instead.",
+                            "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = result.ReleaseUrl,
+                            UseShellExecute = true,
+                        });
+                        return;
+                    }
+
+                    _trayIcon.Text = "iRPC — downloading update...";
+                    await UpdateChecker.DownloadAndPrepareRestartAsync(result);
+                    Shutdown();
+                }
             }
             else if (!silent)
             {
@@ -104,12 +121,14 @@ public class TrayApp : ApplicationContext
         catch
         {
             if (!silent)
-                MessageBox.Show("Couldn't reach GitHub. Check your connection and try again.",
+                MessageBox.Show("Couldn't reach GitHub or download the update. Check your connection and try again.",
                     "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
-    private void OnExit(object? sender, EventArgs e)
+    private void OnExit(object? sender, EventArgs e) => Shutdown();
+
+    private void Shutdown()
     {
         _timer.Stop();
         _discord.Dispose();

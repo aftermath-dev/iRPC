@@ -24,6 +24,7 @@ public class AppSettings
     public bool ShowGitHubButton { get; set; } = true;
     public bool AutoPopulateKeyOverrides { get; set; } = true;
     public bool DebugMode { get; set; } = false;
+    public bool TrackAndCarLogging { get; set; } = false;
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public LargeIconMode LargeIcon { get; set; } = LargeIconMode.TrackLogo;
@@ -39,7 +40,6 @@ public class AppSettings
     public SessionPresenceConfig GetTemplate(string sessionType)
     {
         if (SessionTemplates.TryGetValue(sessionType, out var cfg)) return cfg;
-        if (SessionTemplates.TryGetValue("Default", out var def)) return def;
         return new SessionPresenceConfig();
     }
 
@@ -73,11 +73,30 @@ public class AppSettings
 
     public static Dictionary<string, SessionPresenceConfig> DefaultTemplates() => new()
     {
-        ["Default"]    = new() { DetailsTemplate = "{session} - {track} - {config}", StateTemplate = "{car} | {laps_total} | {time_remain}" },
-        ["Practice"]   = new() { DetailsTemplate = "{session} - {track} - {config}", StateTemplate = "{car} | {laps_total} | {time_remain}" },
-        ["Qualify"]    = new() { DetailsTemplate = "{session} - {track} - {config}", StateTemplate = "{car} | {laps_total} | {time_remain}" },
-        ["Race"]       = new() { DetailsTemplate = "{session} - {track} - {config}", StateTemplate = "{car} | {position} | {laps_total} | {time_remain} | {flag}" },
-        ["Test Drive"] = new() { DetailsTemplate = "{session} - {track} - {config}", StateTemplate = "{car} | {speed_kmh} | {fuel_pct}" },
-        ["Time Trial"] = new() { DetailsTemplate = "{session} - {track} - {config}", StateTemplate = "{car} | {laps_total} | {time_remain}" },
+        ["Practice"] = new() 
+        { 
+            DetailsTemplate = "{session} - {track} - {config}", 
+            StateTemplate   = "{car} | {laps_total} | {time_remain}" 
+        },
+        ["Qualify"] = new() 
+        { 
+            DetailsTemplate = "{session} - {track} - {config}", 
+            StateTemplate   = "{car} | {laps_total} | {time_remain}" 
+        },
+        ["Race"] = new() 
+        { 
+            DetailsTemplate = "{session} - {track} - {config}", 
+            StateTemplate   = "{car} | {position} | {laps_total} | {time_remain} | {flag}" 
+        },
+        ["Test Drive"] = new() 
+        { 
+            DetailsTemplate = "{session} - {track} - {config}", 
+            StateTemplate   = "{car} | {speed_kmh} | {fuel_pct}" 
+        },
+        ["Time Trial"] = new() 
+        { 
+            DetailsTemplate = "{session} - {track} - {config}", 
+            StateTemplate   = "{car} | {laps_total} | {time_remain}" 
+        },
     };
 }
