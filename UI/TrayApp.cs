@@ -48,7 +48,8 @@ public class TrayApp : ApplicationContext
             KeyOverrides.SyncFromTracks();
 
         // Silent startup check — only notify if an update is available
-        _ = CheckForUpdatesAsync(silent: true);
+        if (_settings.CheckForUpdatesOnStartup)
+            _ = CheckForUpdatesAsync(silent: true);
     }
 
     private void OnTick(object? sender, EventArgs e)

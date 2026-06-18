@@ -36,9 +36,8 @@ public class SettingsWindow : Form
     private readonly Dictionary<string, SessionPresenceConfig> _templates;
     private string _currentSessionKey = "Practice";
 
-    private readonly Label    _lblSaved;
-    private readonly System.Windows.Forms.Timer _fadeTimer;
-    private int _fadeStep;
+    private readonly Button _btnSave;
+    private readonly System.Windows.Forms.Timer _savedResetTimer;
 
     private readonly DarkDropDown _cmbSession;
     private readonly BrickRow     _brDetails;
@@ -53,6 +52,7 @@ public class SettingsWindow : Form
     private Panel? _scroll;
     private readonly TextBox  _appIdBox;
     private readonly CheckBox _cbLaunchOnStartup;
+    private readonly CheckBox _cbCheckForUpdatesOnStartup;
     private readonly CheckBox _cbShowGitHubButton;
     private readonly CheckBox _cbAutoPopulateKeyOverrides;
     private readonly CheckBox _cbDebugMode;
@@ -163,6 +163,7 @@ public class SettingsWindow : Form
         y += 32;
 
         _cbLaunchOnStartup          = Cb(scroll, "Launch on Windows startup",              current.LaunchOnStartup,          x, ref y);
+        _cbCheckForUpdatesOnStartup = Cb(scroll, "Check for updates on startup",           current.CheckForUpdatesOnStartup, x, ref y);
         _cbShowGitHubButton         = Cb(scroll, "Show GitHub button",                     current.ShowGitHubButton,         x, ref y);
         _cbAutoPopulateKeyOverrides = Cb(scroll, "Auto-populate key overrides from tracks", current.AutoPopulateKeyOverrides, x, ref y);
 
@@ -194,25 +195,21 @@ public class SettingsWindow : Form
             ? a[0].InformationalVersion : "?";
         bar.Controls.Add(new Label { Text = $"v{ver}", Left = 12, Top = 14, AutoSize = true, ForeColor = TextMuted });
 
-        _lblSaved = new Label
-        {
-            Text = "✓  Saved", Left = 190, Top = 11, Width = 100, Height = 22,
-            AutoSize = false, TextAlign = ContentAlignment.MiddleCenter,
-            ForeColor = GreenSaved, Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            Visible = false,
-        };
-        bar.Controls.Add(_lblSaved);
-
-        var btnSave  = MakeButton("Save",  BgAccent, 354);
+        _btnSave  = MakeButton("Save",  BgAccent, 354);
         var btnClose = MakeButton("Close", BgClose,  438);
         btnClose.DialogResult = DialogResult.Cancel;
-        btnSave.Click += OnSave;
-        bar.Controls.AddRange([btnSave, btnClose]);
+        _btnSave.Click += OnSave;
+        bar.Controls.AddRange([_btnSave, btnClose]);
         Controls.Add(bar);
         CancelButton = btnClose;
 
-        _fadeTimer = new System.Windows.Forms.Timer { Interval = 30 };
-        _fadeTimer.Tick += OnFadeTick;
+        _savedResetTimer = new System.Windows.Forms.Timer { Interval = 1200 };
+        _savedResetTimer.Tick += (_, _) =>
+        {
+            _btnSave.Text = "Save";
+            _btnSave.BackColor = BgAccent;
+            _savedResetTimer.Stop();
+        };
 
         // ── Wire events ──────────────────────────────────────────
         _cmbSession.SelectedIndexChanged += OnSessionChanged;
@@ -275,6 +272,7 @@ public class SettingsWindow : Form
             SmallTextTemplate        = _brSmallText.GetTemplate(),
             ShowElapsedTimer         = _cbElapsedTimer.Checked,
             LaunchOnStartup          = _cbLaunchOnStartup.Checked,
+            CheckForUpdatesOnStartup = _cbCheckForUpdatesOnStartup.Checked,
             ShowGitHubButton         = _cbShowGitHubButton.Checked,
             AutoPopulateKeyOverrides = _cbAutoPopulateKeyOverrides.Checked,
             DebugMode                = _cbDebugMode.Checked,
@@ -282,8 +280,8 @@ public class SettingsWindow : Form
             SessionTemplates         = _templates,
         };
         Settings.Save();
-        _onSave(Settings);
-        ShowSavedFeedback();
+        try { _onSave(Settings); }
+        finally { ShowSavedFeedback(); }
     }
 
     private void OnExportTelemetry(object? sender, EventArgs e)
@@ -333,29 +331,15 @@ public class SettingsWindow : Form
 
     private void ShowSavedFeedback()
     {
-        _fadeStep = 0;
-        _lblSaved.ForeColor = GreenSaved;
-        _lblSaved.Visible = true;
-        _fadeTimer.Stop();
-        _fadeTimer.Start();
-    }
-
-    private static readonly Color BgBar = Color.FromArgb(30, 31, 34);
-
-    private void OnFadeTick(object? sender, EventArgs e)
-    {
-        _fadeStep++;
-        if (_fadeStep >= 60) { _lblSaved.Visible = false; _fadeTimer.Stop(); return; }
-        float t = Math.Clamp((_fadeStep - 20) / 40f, 0f, 1f);
-        _lblSaved.ForeColor = Color.FromArgb(
-            (int)(GreenSaved.R + (BgBar.R - GreenSaved.R) * t),
-            (int)(GreenSaved.G + (BgBar.G - GreenSaved.G) * t),
-            (int)(GreenSaved.B + (BgBar.B - GreenSaved.B) * t));
+        _btnSave.Text = "✓ Saved";
+        _btnSave.BackColor = GreenSaved;
+        _savedResetTimer.Stop();
+        _savedResetTimer.Start();
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) _fadeTimer.Dispose();
+        if (disposing) _savedResetTimer.Dispose();
         base.Dispose(disposing);
     }
 
