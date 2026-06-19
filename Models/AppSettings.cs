@@ -54,6 +54,8 @@ public class AppSettings
                 // Ensure all session types are present after upgrades
                 foreach (var kv in DefaultTemplates())
                     loaded.SessionTemplates.TryAdd(kv.Key, kv.Value);
+                // "Default" was removed as a session type — drop any leftover entry from older settings files
+                loaded.SessionTemplates.Remove("Default");
                 return loaded;
             }
         }
