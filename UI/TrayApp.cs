@@ -105,9 +105,29 @@ public class TrayApp : ApplicationContext
                         return;
                     }
 
-                    _trayIcon.Text = "iRPC — downloading update...";
-                    await UpdateChecker.DownloadAndPrepareRestartAsync(result);
-                    Shutdown();
+                    using var progress = new UpdateProgressDialog(result.LatestTag.TrimStart('v'));
+                    progress.Icon = _trayIcon.Icon;
+                    progress.Show();
+
+                    try
+                    {
+                        await UpdateChecker.DownloadAndPrepareRestartAsync(
+                            result,
+                            (received, total) => progress.ReportProgress(received, total),
+                            progress.Cts.Token);
+                        progress.Close();
+                        Shutdown();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        progress.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        progress.Close();
+                        MessageBox.Show($"Update failed: {ex.Message}",
+                            "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
             }
             else if (!silent)
@@ -122,7 +142,7 @@ public class TrayApp : ApplicationContext
         catch
         {
             if (!silent)
-                MessageBox.Show("Couldn't reach GitHub or download the update. Check your connection and try again.",
+                MessageBox.Show("Couldn't reach GitHub. Check your connection and try again.",
                     "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
