@@ -22,6 +22,7 @@ public static class UpdateChecker
 
         string tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
         string url = doc.RootElement.GetProperty("html_url").GetString() ?? ReleasesUrl;
+        string? notes = doc.RootElement.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() : null;
 
         string? assetUrl = null, assetName = null, assetDigest = null;
         if (doc.RootElement.TryGetProperty("assets", out var assets))
@@ -47,9 +48,36 @@ public static class UpdateChecker
 
         string versionPart = tag.TrimStart('v').Split('-')[0];
         if (!Version.TryParse(versionPart, out var latest))
-            return new UpdateResult(false, tag, url, assetUrl, assetName, assetDigest);
+            return new UpdateResult(false, tag, url, assetUrl, assetName, assetDigest, notes);
 
-        return new UpdateResult(latest > CurrentVersion, tag, url, assetUrl, assetName, assetDigest);
+        return new UpdateResult(latest > CurrentVersion, tag, url, assetUrl, assetName, assetDigest, notes);
+    }
+
+    // Stashes the new release's notes to disk before relaunching, since the new process
+    // is a fresh instance and can't see the in-memory UpdateResult from the old one.
+    private static readonly string PendingNotesPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "iRPC", "pending-update-notes.json");
+
+    public static void SavePendingReleaseNotes(string version, string? notes)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(PendingNotesPath)!);
+            File.WriteAllText(PendingNotesPath, JsonSerializer.Serialize(new PendingNotes(version, notes ?? "")));
+        }
+        catch { }
+    }
+
+    public static PendingNotes? ConsumePendingReleaseNotes()
+    {
+        try
+        {
+            if (!File.Exists(PendingNotesPath)) return null;
+            var notes = JsonSerializer.Deserialize<PendingNotes>(File.ReadAllText(PendingNotesPath));
+            File.Delete(PendingNotesPath);
+            return notes;
+        }
+        catch { return null; }
     }
 
     // Downloads the release exe and writes a helper script that waits for this process
@@ -132,4 +160,6 @@ public static class UpdateChecker
     }
 }
 
-public record UpdateResult(bool HasUpdate, string LatestTag, string ReleaseUrl, string? AssetUrl, string? AssetName, string? AssetDigest);
+public record UpdateResult(bool HasUpdate, string LatestTag, string ReleaseUrl, string? AssetUrl, string? AssetName, string? AssetDigest, string? ReleaseNotes);
+
+public record PendingNotes(string Version, string Notes);

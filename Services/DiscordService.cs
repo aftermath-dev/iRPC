@@ -9,6 +9,8 @@ public class DiscordService : IDisposable
     private string _currentAppId = string.Empty;
     private bool _presenceActive;
 
+    public bool IsConnected => _client?.IsInitialized == true;
+
     public void Update(SessionData data, AppSettings settings)
     {
         EnsureClient(settings.DiscordAppId);

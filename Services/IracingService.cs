@@ -12,7 +12,27 @@ public class IracingService : IDisposable
     private int _lastSessionNum = -1;
     private DateTime? _sessionStartUtc;
 
+    // iRacing exiting/crashing mid-read can throw out of irsdkSharp (e.g. a stale shared-memory
+    // handle) rather than just having IsConnected() go false. Without this, an exception here
+    // would skip the DiscordService.Update call entirely for that tick, leaving a stale presence
+    // showing instead of clearing it.
     public SessionData Poll()
+    {
+        try
+        {
+            return PollInternal();
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Poll failed, resetting connection state: {ex}");
+            _lastYaml = null;
+            _lastSessionNum = -1;
+            _sessionStartUtc = null;
+            return new SessionData();
+        }
+    }
+
+    private SessionData PollInternal()
     {
         var data = new SessionData();
 

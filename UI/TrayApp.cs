@@ -12,6 +12,10 @@ public class TrayApp : ApplicationContext
     private readonly DiscordService _discord = new();
     private AppSettings _settings = AppSettings.Load();
     private readonly Queue<(DateTime Time, SessionData Data)> _pollBuffer = new();
+    private readonly Dictionary<ConnState, Icon> _icons = new();
+    private ConnState _connState = ConnState.Disconnected;
+
+    private enum ConnState { Disconnected, IracingOnly, Full }
 
     public TrayApp()
     {
@@ -25,7 +29,7 @@ public class TrayApp : ApplicationContext
         _trayIcon = new NotifyIcon
         {
             Text = "iRPC",
-            Icon = CreateIcon(),
+            Icon = GetIcon(ConnState.Disconnected),
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -34,9 +38,18 @@ public class TrayApp : ApplicationContext
         _timer.Tick += OnTick;
         _timer.Start();
 
-        _trayIcon.BalloonTipTitle = "iRPC";
-        _trayIcon.BalloonTipText  = "iRPC is running in the system tray.";
-        _trayIcon.BalloonTipIcon  = ToolTipIcon.Info;
+        if (Logger.ConsumeCrashMarker())
+        {
+            _trayIcon.BalloonTipTitle = "iRPC";
+            _trayIcon.BalloonTipText  = "iRPC closed unexpectedly last time. Check iRPC.log for details.";
+            _trayIcon.BalloonTipIcon  = ToolTipIcon.Warning;
+        }
+        else
+        {
+            _trayIcon.BalloonTipTitle = "iRPC";
+            _trayIcon.BalloonTipText  = "iRPC is running in the system tray.";
+            _trayIcon.BalloonTipIcon  = ToolTipIcon.Info;
+        }
         _trayIcon.ShowBalloonTip(3000);
 
         Logger.Enabled = _settings.DebugMode;
@@ -50,6 +63,13 @@ public class TrayApp : ApplicationContext
         // Silent startup check — only notify if an update is available
         if (_settings.CheckForUpdatesOnStartup)
             _ = CheckForUpdatesAsync(silent: true);
+
+        var pending = UpdateChecker.ConsumePendingReleaseNotes();
+        if (pending is not null)
+            MessageBox.Show(
+                string.IsNullOrWhiteSpace(pending.Notes) ? "No release notes provided." : pending.Notes,
+                $"iRPC {pending.Version} — What's New",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void OnTick(object? sender, EventArgs e)
@@ -58,6 +78,15 @@ public class TrayApp : ApplicationContext
         _discord.Update(data, _settings);
         _pollBuffer.Enqueue((DateTime.Now, data));
         if (_pollBuffer.Count > 5) _pollBuffer.Dequeue();
+
+        var state = !data.IsConnected ? ConnState.Disconnected
+            : _discord.IsConnected ? ConnState.Full
+            : ConnState.IracingOnly;
+        if (state != _connState)
+        {
+            _connState = state;
+            _trayIcon.Icon = GetIcon(state);
+        }
     }
 
     private void OnSettings(object? sender, EventArgs e)
@@ -116,6 +145,7 @@ public class TrayApp : ApplicationContext
                             (received, total) => progress.ReportProgress(received, total),
                             progress.Cts.Token);
                         progress.Close();
+                        UpdateChecker.SavePendingReleaseNotes(result.LatestTag, result.ReleaseNotes);
                         Shutdown();
                     }
                     catch (OperationCanceledException)
@@ -170,18 +200,48 @@ public class TrayApp : ApplicationContext
             key.DeleteValue("iRPC", throwOnMissingValue: false);
     }
 
-    private static Icon CreateIcon()
+    private Icon GetIcon(ConnState state)
     {
-        // Try embedded icon.ico first
+        if (_icons.TryGetValue(state, out var cached)) return cached;
+        var icon = CreateIcon(state);
+        _icons[state] = icon;
+        return icon;
+    }
+
+    private static Icon CreateIcon(ConnState state)
+    {
+        Bitmap bmp;
         var stream = System.Reflection.Assembly.GetExecutingAssembly()
             .GetManifestResourceStream("iRPC.ArtAssets.icon.ico");
-        if (stream != null) return new Icon(stream);
+        if (stream != null)
+        {
+            using var baseIcon = new Icon(stream);
+            bmp = baseIcon.ToBitmap();
+        }
+        else
+        {
+            // Fall back to a plain green circle
+            bmp = new Bitmap(16, 16);
+            using var g0 = Graphics.FromImage(bmp);
+            g0.Clear(Color.Transparent);
+            g0.FillEllipse(new SolidBrush(Color.FromArgb(0, 168, 107)), 1, 1, 14, 14);
+        }
 
-        // Fall back to a plain green circle
-        var bmp = new Bitmap(16, 16);
+        Color dot = state switch
+        {
+            ConnState.Full => Color.FromArgb(0, 200, 83),          // iRacing + Discord connected
+            ConnState.IracingOnly => Color.FromArgb(250, 173, 20),  // iRacing only
+            _ => Color.FromArgb(120, 120, 120),                     // disconnected
+        };
+
         using var g = Graphics.FromImage(bmp);
-        g.Clear(Color.Transparent);
-        g.FillEllipse(new SolidBrush(Color.FromArgb(0, 168, 107)), 1, 1, 14, 14);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        int d = Math.Max(4, bmp.Width / 2);
+        var rect = new Rectangle(bmp.Width - d, bmp.Height - d, d, d);
+        g.FillEllipse(new SolidBrush(Color.Black), rect);
+        rect.Inflate(-1, -1);
+        g.FillEllipse(new SolidBrush(dot), rect);
+
         return Icon.FromHandle(bmp.GetHicon());
     }
 
@@ -193,6 +253,7 @@ public class TrayApp : ApplicationContext
             _timer.Dispose();
             _discord.Dispose();
             _iracing.Dispose();
+            foreach (var icon in _icons.Values) icon.Dispose();
         }
         base.Dispose(disposing);
     }
