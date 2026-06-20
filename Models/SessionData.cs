@@ -8,7 +8,9 @@ public class SessionData
     public string SessionType { get; set; } = string.Empty;
     public string TrackName { get; set; } = string.Empty;
     public string TrackConfig { get; set; } = string.Empty;
+    public string TrackCodeName { get; set; } = string.Empty;
     public string CarName { get; set; } = string.Empty;
+    public string CarCodeName { get; set; } = string.Empty;
     public int Position { get; set; }
     public int CurrentLap { get; set; }
     public int LapsRemain { get; set; }    // 32767 = unlimited

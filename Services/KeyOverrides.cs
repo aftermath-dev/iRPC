@@ -66,19 +66,8 @@ public static class KeyOverrides
         try
         {
             if (File.Exists(FilePath))
-            {
-                var map = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                return JsonSerializer.Deserialize<Dictionary<string, string>>(
                     File.ReadAllText(FilePath)) ?? new();
-                bool changed = false;
-                foreach (var kv in Defaults())
-                    if (map.TryAdd(kv.Key, kv.Value)) changed = true;
-                if (changed) Save(map);
-                return map;
-            }
-
-            var defaults = Defaults();
-            Save(defaults);
-            return defaults;
         }
         catch { }
         return new();
@@ -105,16 +94,4 @@ public static class KeyOverrides
         }
         return System.Text.RegularExpressions.Regex.Replace(sb.ToString(), "_+", "_").Trim('_');
     }
-
-    private static Dictionary<string, string> Defaults() => new()
-    {
-        // Tracks — map auto-generated keys to ArtAssets/Tracks filenames
-        ["track_imola_full"]                     = "track_imola",
-        ["track_gesamtstrecke_24h"]              = "track_nurburgring",
-        ["track_gesamtstrecke_vln"]              = "track_nurburgring",
-        ["track_gesamtstrecke_long"]             = "track_nurburgring",
-        ["track_gesamtstrecke_short"]            = "track_nurburgring",
-        // Brands
-        ["brand_mx_5"] = "brand_mazda",
-    };
 }

@@ -9,6 +9,7 @@ public class IracingService : IDisposable
     private string _trackName = string.Empty;
     private string _trackConfig = string.Empty;
     private string _trackCodeName = string.Empty;
+    private string _carCodeName = string.Empty;
     private int _lastSessionNum = -1;
     private DateTime? _sessionStartUtc;
 
@@ -66,11 +67,9 @@ public class IracingService : IDisposable
 
             string? carName = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort");
             string? carCodeName = IracingYaml.GetDriverValue(yaml, carIdx, "CarPath");
+            _carCodeName = carCodeName ?? string.Empty;
 
-            Logger.Log($"YAML update — Track={_trackName} Config={_trackConfig} " +
-                       $"SessionType={IracingYaml.GetSessionValue(yaml, sessionNum, "SessionType")} " +
-                       $"Car={carName} CarPath={carCodeName} " +
-                       $"SessionNum={sessionNum} CarIdx={carIdx}");
+            Logger.Log($"Session info refreshed (SessionNum={sessionNum}, CarIdx={carIdx})");
             TrackCollector.Record(_trackName, _trackConfig, _trackCodeName);
             if (carName != null) CarCollector.Record(carName, carCodeName ?? string.Empty);
         }
@@ -83,20 +82,39 @@ public class IracingService : IDisposable
 
         data.TrackName = _trackName;
         data.TrackConfig = _trackConfig;
+        data.TrackCodeName = _trackCodeName;
         data.SessionStartUtc = _sessionStartUtc;
 
         if (_lastYaml is not null)
         {
             data.SessionType = FormatSessionType(IracingYaml.GetSessionValue(_lastYaml, sessionNum, "SessionType"));
             data.CarName = IracingYaml.GetDriverValue(_lastYaml, carIdx, "CarScreenNameShort") ?? string.Empty;
+            data.CarCodeName = _carCodeName;
         }
 
-        Logger.Log($"Poll — OnTrack={data.IsOnTrack} Replay={data.IsReplay} SessionType={data.SessionType} " +
-                   $"Pos={data.Position} Lap={data.CurrentLap} LapsRemain={data.LapsRemain} " +
-                   $"TimeRemain={data.TimeRemaining:F0}s Flags=0x{sessionFlags:X4} " +
-                   $"Caution={data.IsCaution} Checkered={data.IsCheckered}");
+        Logger.Log(FormatPollBlock(data, sessionFlags));
 
         return data;
+    }
+
+    private static string FormatPollBlock(SessionData d, int sessionFlags)
+    {
+        string lap = d.CurrentLap > 0
+            ? (d.LapsRemain is > 0 and < 32767 ? $"{d.CurrentLap}/{d.CurrentLap + d.LapsRemain}" : $"{d.CurrentLap}")
+            : "-";
+        string timeRemain = d.TimeRemaining > 0 && d.TimeRemaining < 86400
+            ? TimeSpan.FromSeconds(d.TimeRemaining).ToString(@"h\:mm\:ss")
+            : "-";
+        string flag = d.IsCheckered ? "Checkered" : d.IsCaution ? "Caution" : "Green";
+        string pitGarage = d.OnPitRoad ? "Pit" : d.IsInGarage ? "Garage" : "-";
+
+        return "Poll" + Environment.NewLine +
+            $"  Connected     {d.IsConnected}   OnTrack={d.IsOnTrack}   Replay={d.IsReplay}" + Environment.NewLine +
+            $"  Session       {(d.SessionType.Length > 0 ? d.SessionType : "-")}   Pos={(d.Position > 0 ? $"P{d.Position}" : "-")}   Lap={lap}   TimeLeft={timeRemain}" + Environment.NewLine +
+            $"  Track         {d.TrackName}{(d.TrackConfig.Length > 0 ? $" / {d.TrackConfig}" : "")}   [{(d.TrackCodeName.Length > 0 ? d.TrackCodeName : "-")}]" + Environment.NewLine +
+            $"  Car           {(d.CarName.Length > 0 ? d.CarName : "-")}   [{(d.CarCodeName.Length > 0 ? d.CarCodeName : "-")}]" + Environment.NewLine +
+            $"  Speed/Fuel    {d.Speed * 3.6f:F0} km/h   {d.FuelLevel:F1}L ({d.FuelPercent * 100:F0}%)" + Environment.NewLine +
+            $"  Flag/Pit      {flag} / {pitGarage}   (Flags=0x{sessionFlags:X4})";
     }
 
     private void RefreshStaticData(string yaml, int sessionNum)

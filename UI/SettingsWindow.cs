@@ -202,6 +202,18 @@ public class SettingsWindow : Form
         scroll.Controls.Add(btnSnap);
         y += 34;
 
+        var btnScan = new Button
+        {
+            Text = "Scan Installed Content (.dat paths)",
+            Left = x, Top = y, Width = 230, Height = 26,
+            FlatStyle = FlatStyle.Flat, BackColor = BgClose, ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9f), Cursor = Cursors.Hand,
+        };
+        btnScan.FlatAppearance.BorderSize = 0;
+        btnScan.Click += OnScanContent;
+        scroll.Controls.Add(btnScan);
+        y += 34;
+
         // ── Bottom bar ───────────────────────────────────────────
         var bar = new Panel { Left = 0, Top = 666, Width = 520, Height = 44, BackColor = Color.FromArgb(30, 31, 34) };
 
@@ -324,7 +336,9 @@ public class SettingsWindow : Form
             sb.AppendLine($"  Is Replay    {d.IsReplay}");
             sb.AppendLine($"  Session      {d.SessionType}");
             sb.AppendLine($"  Track        {d.TrackName}{(d.TrackConfig.Length > 0 ? $" / {d.TrackConfig}" : "")}");
+            sb.AppendLine($"  Track Code   {(d.TrackCodeName.Length > 0 ? d.TrackCodeName : "—")}");
             sb.AppendLine($"  Car          {d.CarName}");
+            sb.AppendLine($"  Car Code     {(d.CarCodeName.Length > 0 ? d.CarCodeName : "—")}");
             sb.AppendLine($"  Position     {(d.Position > 0 ? $"P{d.Position}" : "—")}");
             sb.AppendLine($"  Lap          {d.CurrentLap}{(d.LapsRemain is > 0 and < 32767 ? $" / {d.CurrentLap + d.LapsRemain}  ({d.LapsRemain} left)" : "")}");
             sb.AppendLine($"  Time Left    {(d.TimeRemaining > 0 && d.TimeRemaining < 86400 ? TimeSpan.FromSeconds(d.TimeRemaining).ToString(@"h\:mm\:ss") : "—")}");
@@ -341,6 +355,23 @@ public class SettingsWindow : Form
             "iRPC", "telemetry_snapshot.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, sb.ToString());
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            { FileName = path, UseShellExecute = true });
+    }
+
+    private void OnScanContent(object? sender, EventArgs e)
+    {
+        const string defaultRoot = @"C:\Program Files (x86)\iRacing";
+        using var dlg = new FolderBrowserDialog
+        {
+            Description = "Select your iRacing install folder (contains 'cars' and 'tracks' subfolders)",
+            SelectedPath = Directory.Exists(defaultRoot) ? defaultRoot : "",
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        string path = ContentScanner.Scan(dlg.SelectedPath);
+        MessageBox.Show($"Scan complete — saved to:\n{path}\n\nSend me that file and I'll match the paths up to asset overrides.",
+            "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Information);
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             { FileName = path, UseShellExecute = true });
     }

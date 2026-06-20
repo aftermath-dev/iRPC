@@ -8,8 +8,11 @@ public class DiscordService : IDisposable
     private DiscordRpcClient? _client;
     private string _currentAppId = string.Empty;
     private bool _presenceActive;
+    private bool _connected;
 
-    public bool IsConnected => _client?.IsInitialized == true;
+    // True only while the named-pipe handshake with the Discord client is actually live —
+    // IsInitialized just means Initialize() was called and stays true even after Discord closes.
+    public bool IsConnected => _connected;
 
     public void Update(SessionData data, AppSettings settings)
     {
@@ -99,8 +102,15 @@ public class DiscordService : IDisposable
         return s;
     }
 
+    // Debug builds pull art from the Julius dev branch so renamed/new assets can be tested
+    // before they're merged to main; Release (published) builds always use main.
+#if DEBUG
+    public const string AssetBase =
+        "https://raw.githubusercontent.com/aftermath-dev/iRPC/Julius/ArtAssets";
+#else
     public const string AssetBase =
         "https://raw.githubusercontent.com/aftermath-dev/iRPC/main/ArtAssets";
+#endif
 
     private static Assets BuildAssets(SessionData data, AppSettings s)
     {
@@ -108,7 +118,7 @@ public class DiscordService : IDisposable
         {
             LargeIconMode.IracingLogo => $"{AssetBase}/Icons/iracing_logo.png",
             LargeIconMode.IrpcLogo   => $"{AssetBase}/Icons/irpc_logo.png",
-            LargeIconMode.TrackLogo  => TrackUrl(data.TrackName),
+            LargeIconMode.TrackLogo  => TrackUrl(data.TrackCodeName, data.TrackName),
             _                        => null,
         };
 
@@ -135,18 +145,50 @@ public class DiscordService : IDisposable
         };
     }
 
-    private static string? TrackUrl(string? name)
+    // Track asset filenames in this repo are mostly short, predictable names matching the root
+    // install-folder segment of the codename (e.g. tracks/suzuka/suzuka.dat -> "suzuka" ->
+    // track_suzuka.png), not the official display name, which is often longer/different
+    // (e.g. "Autodromo Enzo e Dino Ferrari" for Imola). Prefer the codename root; fall back to
+    // the display name if no codename is available yet (e.g. before the first session-info read).
+    private static string? TrackUrl(string? codeName, string? displayName)
     {
-        if (AssetKey(name) is not { } k) return null;
-        string mapped = KeyOverrides.Apply($"track_{k}");
+        string? root = string.IsNullOrWhiteSpace(codeName) ? null : codeName.Split(' ')[0];
+        string? key = AssetKey(root) ?? AssetKey(displayName);
+        if (key is null) return null;
+        string mapped = KeyOverrides.Apply($"track_{key}");
         return $"{AssetBase}/Tracks/{mapped}.png";
     }
 
+    // Series names shared by multiple real manufacturers (e.g. "ARCA Ford"/"ARCA Chevrolet"/
+    // "ARCA Toyota", "Formula Renault"/"Formula Mazda"/"Formula Vee") collapse to the same
+    // first-word key, which would make any override ambiguous. For these, key off the first
+    // two words instead so each manufacturer/variant gets its own resolvable key.
+    private static readonly HashSet<string> AmbiguousBrandPrefixes =
+        new(StringComparer.OrdinalIgnoreCase) { "arca", "formula", "super" };
+
+    // Known multi-word manufacturer names whose first word alone doesn't match an asset
+    // filename — these are facts about the car roster, not something a user should have to
+    // configure via key_overrides.json.
+    private static readonly Dictionary<string, string> BrandAliases =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["aston"] = "aston_martin",
+            ["mercedes_amg"] = "mercedes",
+        };
+
     private static string? BrandUrl(string carName)
     {
-        string brand = carName.Split(' ')[0];
-        if (AssetKey(brand) is not { } k) return null;
-        string mapped = KeyOverrides.Apply($"brand_{k}");
+        string[] words = carName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0 || AssetKey(words[0]) is not { } firstKey) return null;
+
+        string lookupKey = AmbiguousBrandPrefixes.Contains(firstKey) && words.Length > 1
+            ? AssetKey($"{words[0]} {words[1]}") ?? firstKey
+            : firstKey;
+
+        if (BrandAliases.TryGetValue(lookupKey, out string? alias))
+            lookupKey = alias;
+
+        string mapped = KeyOverrides.Apply($"brand_{lookupKey}");
         return $"{AssetBase}/Brands/{mapped}.png";
     }
 
@@ -190,13 +232,18 @@ public class DiscordService : IDisposable
         _client?.Dispose();
         _client = null;
         _presenceActive = false;
+        _connected = false;
     }
 
     private void EnsureClient(string appId)
     {
         if (_client != null && _currentAppId == appId) return;
         _client?.Dispose();
+        _connected = false;
         _client = new DiscordRpcClient(appId);
+        _client.OnConnectionEstablished += (_, _) => _connected = true;
+        _client.OnConnectionFailed      += (_, _) => _connected = false;
+        _client.OnClose                 += (_, _) => _connected = false;
         _client.Initialize();
         _currentAppId = appId;
         _presenceActive = false;
@@ -209,5 +256,6 @@ public class DiscordService : IDisposable
     {
         _client?.Dispose();
         _client = null;
+        _connected = false;
     }
 }
