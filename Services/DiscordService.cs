@@ -99,7 +99,7 @@ public class DiscordService : IDisposable
         return s;
     }
 
-    private const string AssetBase =
+    public const string AssetBase =
         "https://raw.githubusercontent.com/aftermath-dev/iRPC/main/ArtAssets";
 
     private static Assets BuildAssets(SessionData data, AppSettings s)

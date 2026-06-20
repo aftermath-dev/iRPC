@@ -21,6 +21,14 @@ public static class KeyOverrides
 
     public static void Reload() => _map = Load();
 
+    public static Dictionary<string, string> GetAll() => new(_map);
+
+    public static void SetAll(Dictionary<string, string> map)
+    {
+        _map = new(map);
+        Save(_map);
+    }
+
     // Reads tracks.txt and adds any keys not already in the overrides file,
     // using an identity mapping so users can see and edit them.
     public static void SyncFromTracks()
@@ -79,8 +87,12 @@ public static class KeyOverrides
     private static void Save(Dictionary<string, string> map)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(map,
-            new JsonSerializerOptions { WriteIndented = true }));
+        string json = JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true });
+
+        // Write-then-rename so a crash/power loss mid-write can't leave a truncated file.
+        string tempPath = FilePath + ".tmp";
+        File.WriteAllText(tempPath, json);
+        File.Move(tempPath, FilePath, overwrite: true);
     }
 
     private static string Sanitize(string name)

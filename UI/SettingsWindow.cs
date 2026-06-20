@@ -167,6 +167,22 @@ public class SettingsWindow : Form
         _cbShowGitHubButton         = Cb(scroll, "Show GitHub button",                     current.ShowGitHubButton,         x, ref y);
         _cbAutoPopulateKeyOverrides = Cb(scroll, "Auto-populate key overrides from tracks", current.AutoPopulateKeyOverrides, x, ref y);
 
+        var btnKeyOverrides = new Button
+        {
+            Text = "Edit Key Overrides…",
+            Left = x, Top = y, Width = 160, Height = 26,
+            FlatStyle = FlatStyle.Flat, BackColor = BgClose, ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9f), Cursor = Cursors.Hand,
+        };
+        btnKeyOverrides.FlatAppearance.BorderSize = 0;
+        btnKeyOverrides.Click += (_, _) =>
+        {
+            using var dlg = new KeyOverridesDialog { Icon = Icon };
+            dlg.ShowDialog(this);
+        };
+        scroll.Controls.Add(btnKeyOverrides);
+        y += 34;
+
         // ── Debug section ────────────────────────────────────────
         Divider(scroll, x, ref y);
         Section(scroll, "Debug", x, ref y);
