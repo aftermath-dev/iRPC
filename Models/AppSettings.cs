@@ -68,8 +68,12 @@ public class AppSettings
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this,
-                new JsonSerializerOptions { WriteIndented = true }));
+            string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+
+            // Write-then-rename so a crash/power loss mid-write can't leave a truncated settings.json.
+            string tempPath = FilePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, FilePath, overwrite: true);
         }
         catch { }
     }

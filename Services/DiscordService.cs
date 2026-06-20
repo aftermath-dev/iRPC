@@ -18,12 +18,7 @@ public class DiscordService : IDisposable
 
         if (!data.IsConnected)
         {
-            if (_presenceActive)
-            {
-                _client.ClearPresence();
-                _presenceActive = false;
-            }
-            _client.Invoke();
+            Clear();
             return;
         }
 
@@ -43,6 +38,17 @@ public class DiscordService : IDisposable
 
         _client.SetPresence(presence);
         _presenceActive = true;
+        _client.Invoke();
+    }
+
+    public void Clear()
+    {
+        if (_client is null) return;
+        if (_presenceActive)
+        {
+            _client.ClearPresence();
+            _presenceActive = false;
+        }
         _client.Invoke();
     }
 

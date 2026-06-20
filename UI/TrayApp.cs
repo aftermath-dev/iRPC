@@ -14,14 +14,23 @@ public class TrayApp : ApplicationContext
     private readonly Queue<(DateTime Time, SessionData Data)> _pollBuffer = new();
     private readonly Dictionary<ConnState, Icon> _icons = new();
     private ConnState _connState = ConnState.Disconnected;
+    private bool _presencePaused;
 
     private enum ConnState { Disconnected, IracingOnly, Full }
 
     public TrayApp()
     {
+        var pauseItem = new ToolStripMenuItem("Pause Presence") { CheckOnClick = true };
+        pauseItem.CheckedChanged += (_, _) =>
+        {
+            _presencePaused = pauseItem.Checked;
+            if (_presencePaused) _discord.Clear();
+        };
+
         var menu = new ContextMenuStrip();
         menu.Items.Add("Settings", null, OnSettings);
         menu.Items.Add("Reconnect Discord", null, (_, _) => _discord.Reconnect());
+        menu.Items.Add(pauseItem);
         menu.Items.Add("Check for Updates", null, OnCheckForUpdates);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, OnExit);
@@ -75,7 +84,8 @@ public class TrayApp : ApplicationContext
     private void OnTick(object? sender, EventArgs e)
     {
         SessionData data = _iracing.Poll();
-        _discord.Update(data, _settings);
+        if (!_presencePaused)
+            _discord.Update(data, _settings);
         _pollBuffer.Enqueue((DateTime.Now, data));
         if (_pollBuffer.Count > 5) _pollBuffer.Dequeue();
 
