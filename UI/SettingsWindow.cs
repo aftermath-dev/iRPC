@@ -57,6 +57,7 @@ public class SettingsWindow : Form
     private readonly CheckBox _cbAutoPopulateKeyOverrides;
     private readonly CheckBox _cbDebugMode;
     private readonly CheckBox _cbTrackAndCarLogging;
+    private readonly NumericUpDown _nudIRatingWindow;
 
     private readonly Action<AppSettings> _onSave;
     private readonly Func<List<(DateTime Time, SessionData Data)>> _getTelemetry;
@@ -106,9 +107,10 @@ public class SettingsWindow : Form
         _cmbSession = Cmb(scroll, x, y, 180, SessionKeys, 0);
         y += 32;
 
-        // BrickRow height: PoolY(46) + max 3 pool rows (16 bricks / ~6 per row) * 28px + 4 = 134px.
-        // Use a fixed allocation so controls below don't shift as bricks move between rows.
-        const int BrickRowAlloc = 134;
+        // Fixed allocation so controls below don't shift as bricks move between active/pool —
+        // sized off BrickRow's own worst-case (every brick unassigned) so it can't drift out of
+        // sync with BrickRow.All again.
+        int BrickRowAlloc = BrickRow.MaxHeight(484);
 
         FieldLabel(scroll, "Details", x, ref y);
         _brDetails = new BrickRow(" - ") { Left = x, Top = y, Width = 484, BackColor = BgForm };
@@ -166,6 +168,10 @@ public class SettingsWindow : Form
         _cbCheckForUpdatesOnStartup = Cb(scroll, "Check for updates on startup",           current.CheckForUpdatesOnStartup, x, ref y);
         _cbShowGitHubButton         = Cb(scroll, "Show GitHub button",                     current.ShowGitHubButton,         x, ref y);
         _cbAutoPopulateKeyOverrides = Cb(scroll, "Auto-populate key overrides from tracks", current.AutoPopulateKeyOverrides, x, ref y);
+
+        FieldLabel(scroll, "Custom iRating avg window (races)", x, ref y);
+        _nudIRatingWindow = Nud(scroll, x, y, 80, current.IRatingAvgCustomWindow);
+        y += 32;
 
         var btnKeyOverrides = new Button
         {
@@ -279,6 +285,11 @@ public class SettingsWindow : Form
             CarName = "Ferrari 488 GT3",
             Position = 3, CurrentLap = 12, LapsRemain = 8,
             TimeRemaining = 2754, Speed = 50f, FuelLevel = 45.2f, FuelPercent = 0.6f,
+            StrengthOfField = 2450,
+            PlayerIRating = 2450, IRatingAvg5 = 2410, IRatingAvg10 = 2390, IRatingAvgCustom = 2375,
+            ClassPosition = 2, AirTempC = 24f, TrackTempC = 32f, Skies = 1,
+            PitstopActive = false, PitRepairLeft = 0, PitOptRepairLeft = 0,
+            FastRepairsUsed = 1, FastRepairsAvailable = 3, IncidentCount = 3,
         };
         _previewDetails.Text = DiscordService.ApplyTemplate(_brDetails.GetTemplate(), data);
         _previewState.Text   = DiscordService.ApplyTemplate(_brState.GetTemplate(), data);
@@ -305,6 +316,7 @@ public class SettingsWindow : Form
             AutoPopulateKeyOverrides = _cbAutoPopulateKeyOverrides.Checked,
             DebugMode                = _cbDebugMode.Checked,
             TrackAndCarLogging       = _cbTrackAndCarLogging.Checked,
+            IRatingAvgCustomWindow   = (int)_nudIRatingWindow.Value,
             SessionTemplates         = _templates,
         };
         Settings.Save();
@@ -416,6 +428,17 @@ public class SettingsWindow : Form
         var tb = new TextBox { Left = x, Top = y, Width = w, Text = text, BackColor = BgInput, ForeColor = TextPrimary, BorderStyle = BorderStyle.FixedSingle };
         p.Controls.Add(tb);
         return tb;
+    }
+
+    private static NumericUpDown Nud(Panel p, int x, int y, int w, int val)
+    {
+        var nud = new NumericUpDown
+        {
+            Left = x, Top = y, Width = w, Minimum = 1, Maximum = 200, Value = Math.Clamp(val, 1, 200),
+            BackColor = BgInput, ForeColor = TextPrimary, BorderStyle = BorderStyle.FixedSingle,
+        };
+        p.Controls.Add(nud);
+        return nud;
     }
 
     private static DarkDropDown Cmb(Panel p, int x, int y, int w, string[] items, int sel)

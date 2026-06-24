@@ -22,5 +22,22 @@ public class SessionData
     public float FuelLevel { get; set; }    // liters
     public float FuelPercent { get; set; }  // 0–1
     public bool OnPitRoad { get; set; }
+    public float LastLapTime { get; set; }  // seconds; -1 = no valid lap yet
+    public float BestLapTime { get; set; }  // seconds; -1 = no valid lap yet
+    public int StrengthOfField { get; set; }  // 0 = not yet computed / no competitors
+    public int PlayerIRating { get; set; }    // 0 = unranked / not yet read
+    public int IRatingAvg5 { get; set; }       // average of player's last 5 race-end iRatings; 0 = no history yet
+    public int IRatingAvg10 { get; set; }      // average of player's last 10 race-end iRatings; 0 = no history yet
+    public int IRatingAvgCustom { get; set; }  // average over AppSettings.IRatingAvgCustomWindow races; 0 = no history yet
+    public int ClassPosition { get; set; }     // position within player's car class (multiclass races); 0 outside race
+    public float AirTempC { get; set; }
+    public float TrackTempC { get; set; }
+    public int Skies { get; set; }             // 0=Clear, 1=Partly Cloudy, 2=Mostly Cloudy, 3=Overcast
+    public bool PitstopActive { get; set; }
+    public float PitRepairLeft { get; set; }      // seconds of mandatory damage repair remaining
+    public float PitOptRepairLeft { get; set; }    // seconds of optional/cosmetic repair remaining
+    public int FastRepairsUsed { get; set; }
+    public int FastRepairsAvailable { get; set; }
+    public int IncidentCount { get; set; }
     public bool IsInGarage => IsConnected && !IsOnTrack && !OnPitRoad;
 }

@@ -10,6 +10,18 @@ public class DiscordService : IDisposable
     private bool _presenceActive;
     private bool _connected;
 
+    // Last-sent presence fields, compared each tick so we only push to Discord (and re-render
+    // templates) when something actually visible changed — the poll timer fires every second
+    // regardless of whether the session state moved at all.
+    private string? _lastDetails;
+    private string? _lastState;
+    private string? _lastLargeImageKey;
+    private string? _lastLargeImageText;
+    private string? _lastSmallImageKey;
+    private string? _lastSmallImageText;
+    private bool? _lastShowGitHubButton;
+    private DateTime? _lastTimestamp;
+
     // True only while the named-pipe handshake with the Discord client is actually live —
     // IsInitialized just means Initialize() was called and stays true even after Discord closes.
     public bool IsConnected => _connected;
@@ -26,22 +38,47 @@ public class DiscordService : IDisposable
         }
 
         var cfg = settings.GetTemplate(data.SessionType);
+        string details = Truncate(ApplyTemplate(cfg.DetailsTemplate, data), 128);
+        string state   = Truncate(ApplyTemplate(cfg.StateTemplate, data), 128);
+        var assets = BuildAssets(data, settings);
+        DateTime? timestamp = settings.ShowElapsedTimer ? data.SessionStartUtc : null;
+
+        bool unchanged = _presenceActive
+            && details == _lastDetails
+            && state == _lastState
+            && assets.LargeImageKey == _lastLargeImageKey
+            && assets.LargeImageText == _lastLargeImageText
+            && assets.SmallImageKey == _lastSmallImageKey
+            && assets.SmallImageText == _lastSmallImageText
+            && settings.ShowGitHubButton == _lastShowGitHubButton
+            && timestamp == _lastTimestamp;
+        if (unchanged) return;
+
         var presence = new RichPresence
         {
-            Details = Truncate(ApplyTemplate(cfg.DetailsTemplate, data), 128),
-            State   = Truncate(ApplyTemplate(cfg.StateTemplate, data), 128),
-            Assets  = BuildAssets(data, settings),
+            Details = details,
+            State   = state,
+            Assets  = assets,
             Buttons = settings.ShowGitHubButton
                 ? [new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" }]
                 : null,
         };
 
-        if (settings.ShowElapsedTimer && data.SessionStartUtc.HasValue)
-            presence.Timestamps = new Timestamps(data.SessionStartUtc.Value);
+        if (timestamp.HasValue)
+            presence.Timestamps = new Timestamps(timestamp.Value);
 
         _client.SetPresence(presence);
         _presenceActive = true;
         _client.Invoke();
+
+        _lastDetails = details;
+        _lastState = state;
+        _lastLargeImageKey = assets.LargeImageKey;
+        _lastLargeImageText = assets.LargeImageText;
+        _lastSmallImageKey = assets.SmallImageKey;
+        _lastSmallImageText = assets.SmallImageText;
+        _lastShowGitHubButton = settings.ShowGitHubButton;
+        _lastTimestamp = timestamp;
     }
 
     public void Clear()
@@ -51,8 +88,21 @@ public class DiscordService : IDisposable
         {
             _client.ClearPresence();
             _presenceActive = false;
+            ResetLastSent();
         }
         _client.Invoke();
+    }
+
+    private void ResetLastSent()
+    {
+        _lastDetails = null;
+        _lastState = null;
+        _lastLargeImageKey = null;
+        _lastLargeImageText = null;
+        _lastSmallImageKey = null;
+        _lastSmallImageText = null;
+        _lastShowGitHubButton = null;
+        _lastTimestamp = null;
     }
 
     public static string ApplyTemplate(string template, SessionData data)
@@ -69,6 +119,11 @@ public class DiscordService : IDisposable
                 : string.Empty
             : string.Empty;
 
+        string lastLap = FormatLapTime(data.LastLapTime);
+        string bestLap = FormatLapTime(data.BestLapTime);
+        string sky = FormatSky(data.Skies);
+        string fastRepairs = data.FastRepairsAvailable > 0 ? $"FR {data.FastRepairsUsed}/{data.FastRepairsAvailable}" : string.Empty;
+
         string result = template
             .Replace("{session}",      data.SessionType)
             .Replace("{track}",        data.TrackName)
@@ -83,12 +138,43 @@ public class DiscordService : IDisposable
             .Replace("{speed_mph}",    $"{data.Speed * 2.237f:F0} mph")
             .Replace("{fuel}",         $"{data.FuelLevel:F1}L")
             .Replace("{fuel_pct}",     $"{data.FuelPercent * 100:F0}%")
+            .Replace("{last_lap}",     lastLap.Length > 0 ? $"Last {lastLap}" : string.Empty)
+            .Replace("{best_lap}",     bestLap.Length > 0 ? $"Best {bestLap}" : string.Empty)
+            .Replace("{sof}",          data.StrengthOfField > 0 ? $"SoF {data.StrengthOfField}" : string.Empty)
+            .Replace("{irating}",          data.PlayerIRating > 0 ? $"iR {data.PlayerIRating}" : string.Empty)
+            .Replace("{irating_avg5}",     data.IRatingAvg5 > 0 ? $"iR Avg5 {data.IRatingAvg5}" : string.Empty)
+            .Replace("{irating_avg10}",    data.IRatingAvg10 > 0 ? $"iR Avg10 {data.IRatingAvg10}" : string.Empty)
+            .Replace("{irating_avg_custom}", data.IRatingAvgCustom > 0 ? $"iR Avg {data.IRatingAvgCustom}" : string.Empty)
+            .Replace("{class_position}",  data.ClassPosition > 0 ? $"P{data.ClassPosition} in class" : string.Empty)
+            .Replace("{sky}",              sky)
+            .Replace("{air_temp_c}",       $"{data.AirTempC:F0}°C")
+            .Replace("{air_temp_f}",       $"{data.AirTempC * 9 / 5 + 32:F0}°F")
+            .Replace("{track_temp_c}",     $"{data.TrackTempC:F0}°C")
+            .Replace("{track_temp_f}",     $"{data.TrackTempC * 9 / 5 + 32:F0}°F")
+            .Replace("{pit_service}",      data.PitstopActive ? "Servicing" : string.Empty)
+            .Replace("{pit_repair}",       data.PitRepairLeft > 0 ? $"Repair {data.PitRepairLeft:F0}s" : string.Empty)
+            .Replace("{pit_opt_repair}",   data.PitOptRepairLeft > 0 ? $"Opt Repair {data.PitOptRepairLeft:F0}s" : string.Empty)
+            .Replace("{fast_repairs}",     fastRepairs)
+            .Replace("{incidents}",        data.IncidentCount > 0 ? $"{data.IncidentCount}x" : string.Empty)
             .Replace("{flag}",         data.IsCheckered ? "Checkered" : data.IsCaution ? "Caution" : string.Empty)
             .Replace("{pit}",          data.OnPitRoad ? "In Pits" : string.Empty)
             .Replace("{garage}",       data.IsInGarage ? "In Garage" : string.Empty);
 
         return CleanResult(result);
     }
+
+    // iRacing reports -1 for LapLastLapTime/LapBestLapTime when no valid lap has been set yet.
+    private static string FormatLapTime(float seconds) =>
+        seconds > 0 ? TimeSpan.FromSeconds(seconds).ToString(@"m\:ss\.fff") : string.Empty;
+
+    private static string FormatSky(int skies) => skies switch
+    {
+        0 => "Clear",
+        1 => "Partly Cloudy",
+        2 => "Mostly Cloudy",
+        3 => "Overcast",
+        _ => string.Empty,
+    };
 
     private static string CleanResult(string s)
     {
@@ -233,6 +319,7 @@ public class DiscordService : IDisposable
         _client = null;
         _presenceActive = false;
         _connected = false;
+        ResetLastSent();
     }
 
     private void EnsureClient(string appId)
@@ -247,6 +334,7 @@ public class DiscordService : IDisposable
         _client.Initialize();
         _currentAppId = appId;
         _presenceActive = false;
+        ResetLastSent();
     }
 
     private static string Truncate(string s, int max) =>

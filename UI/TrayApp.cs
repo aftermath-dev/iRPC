@@ -13,6 +13,7 @@ public class TrayApp : ApplicationContext
     private AppSettings _settings = AppSettings.Load();
     private readonly Queue<(DateTime Time, SessionData Data)> _pollBuffer = new();
     private readonly Dictionary<ConnState, Icon> _icons = new();
+    private Icon? _plainIcon;
     private ConnState _connState = ConnState.Disconnected;
     private bool _presencePaused;
 
@@ -29,6 +30,7 @@ public class TrayApp : ApplicationContext
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("Settings", null, OnSettings);
+        menu.Items.Add("Stats", null, OnStats);
         menu.Items.Add("Reconnect Discord", null, (_, _) => _discord.Reconnect());
         menu.Items.Add(pauseItem);
         menu.Items.Add("Check for Updates", null, OnCheckForUpdates);
@@ -84,8 +86,13 @@ public class TrayApp : ApplicationContext
     private void OnTick(object? sender, EventArgs e)
     {
         SessionData data = _iracing.Poll();
+        IRatingTracker.Record(data);
+        data.IRatingAvg5 = IRatingTracker.AverageOfLast(5);
+        data.IRatingAvg10 = IRatingTracker.AverageOfLast(10);
+        data.IRatingAvgCustom = IRatingTracker.AverageOfLast(_settings.IRatingAvgCustomWindow);
         if (!_presencePaused)
             _discord.Update(data, _settings);
+        StatsTracker.Record(data);
         _pollBuffer.Enqueue((DateTime.Now, data));
         if (_pollBuffer.Count > 5) _pollBuffer.Dequeue();
 
@@ -109,7 +116,13 @@ public class TrayApp : ApplicationContext
             CarCollector.Enabled = _settings.TrackAndCarLogging;
             ApplyStartup(_settings.LaunchOnStartup);
         }, () => _pollBuffer.ToList());
-        win.Icon = _trayIcon.Icon;
+        win.Icon = GetPlainIcon();
+        win.ShowDialog();
+    }
+
+    private void OnStats(object? sender, EventArgs e)
+    {
+        using var win = new StatsWindow(StatsTracker.Snapshot()) { Icon = GetPlainIcon() };
         win.ShowDialog();
     }
 
@@ -145,7 +158,7 @@ public class TrayApp : ApplicationContext
                     }
 
                     using var progress = new UpdateProgressDialog(result.LatestTag.TrimStart('v'));
-                    progress.Icon = _trayIcon.Icon;
+                    progress.Icon = GetPlainIcon();
                     progress.Show();
 
                     try
@@ -192,6 +205,7 @@ public class TrayApp : ApplicationContext
     private void Shutdown()
     {
         _timer.Stop();
+        StatsTracker.Flush();
         _discord.Dispose();
         _iracing.Dispose();
         _trayIcon.Visible = false;
@@ -216,6 +230,19 @@ public class TrayApp : ApplicationContext
         var icon = CreateIcon(state);
         _icons[state] = icon;
         return icon;
+    }
+
+    // Dialogs (Settings/Stats/Update progress) set their Icon once at construction and never
+    // touch it again, so handing them the live connection-status icon leaves a stale colored dot
+    // on the taskbar thumbnail for as long as the dialog stays open. Those windows aren't status
+    // indicators, so give them the plain app icon instead — only the tray icon shows status.
+    private Icon GetPlainIcon() => _plainIcon ??= CreatePlainIcon();
+
+    private static Icon CreatePlainIcon()
+    {
+        var stream = System.Reflection.Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("iRPC.ArtAssets.icon.ico");
+        return stream != null ? new Icon(stream) : SystemIcons.Application;
     }
 
     private static Icon CreateIcon(ConnState state)
@@ -259,6 +286,7 @@ public class TrayApp : ApplicationContext
     {
         if (disposing)
         {
+            StatsTracker.Flush();
             _trayIcon.Dispose();
             _timer.Dispose();
             _discord.Dispose();

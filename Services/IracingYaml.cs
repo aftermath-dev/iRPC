@@ -31,19 +31,38 @@ public static class IracingYaml
     // Returns value of 'key' from the Drivers list entry whose CarIdx matches.
     public static string? GetDriverValue(string yaml, int carIdx, string key)
     {
-        // Find the Drivers: list — handles both LF and CRLF
-        var driversMatch = Regex.Match(yaml, @"^\s*Drivers:\s*$", RegexOptions.Multiline);
-        if (!driversMatch.Success) return null;
-        string driversList = yaml[driversMatch.Index..];
-
-        // Split on driver entries: "- CarIdx:"
-        string[] blocks = Regex.Split(driversList, @"(?=\s*-\s+CarIdx:)");
-        foreach (string block in blocks)
+        foreach (string block in GetDriverBlocks(yaml))
         {
             var idxMatch = Regex.Match(block, @"-\s+CarIdx:\s*(\d+)");
             if (idxMatch.Success && int.Parse(idxMatch.Groups[1].Value) == carIdx)
                 return GetValue(block, key);
         }
         return null;
+    }
+
+    // Returns the IRating of every real, currently-entered competitor (excludes the pace car
+    // and spectator slots, which carry meaningless/zero IRating values that would skew SoF).
+    public static List<int> GetCompetitorIRatings(string yaml)
+    {
+        var result = new List<int>();
+        foreach (string block in GetDriverBlocks(yaml))
+        {
+            if (GetValue(block, "CarIsPaceCar") == "1") continue;
+            if (GetValue(block, "IsSpectator") == "1") continue;
+            if (GetValue(block, "IRating") is { } iratingStr && int.TryParse(iratingStr, out int irating) && irating > 0)
+                result.Add(irating);
+        }
+        return result;
+    }
+
+    private static IEnumerable<string> GetDriverBlocks(string yaml)
+    {
+        // Find the Drivers: list — handles both LF and CRLF
+        var driversMatch = Regex.Match(yaml, @"^\s*Drivers:\s*$", RegexOptions.Multiline);
+        if (!driversMatch.Success) return [];
+        string driversList = yaml[driversMatch.Index..];
+
+        // Split on driver entries: "- CarIdx:"
+        return Regex.Split(driversList, @"(?=\s*-\s+CarIdx:)");
     }
 }
