@@ -19,7 +19,6 @@ public class AppSettings
         "iRPC", "settings.json");
 
     public string DiscordAppId { get; set; } = "1514987753136193706";
-    public bool ShowElapsedTimer { get; set; } = true;
     public bool LaunchOnStartup { get; set; } = false;
     public bool CheckForUpdatesOnStartup { get; set; } = true;
     public bool ShowGitHubButton { get; set; } = true;
