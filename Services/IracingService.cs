@@ -10,8 +10,12 @@ public class IracingService : IDisposable
     private string _trackConfig = string.Empty;
     private string _trackCodeName = string.Empty;
     private string _carCodeName = string.Empty;
+    private string _carName = string.Empty;
+    private string _sessionType = string.Empty;
+    private int _playerIRating;
     private int _strengthOfField;
     private int _lastSessionNum = -1;
+    private int _lastCarIdx = -1;
     private DateTime? _sessionStartUtc;
 
     // iRacing exiting/crashing mid-read can throw out of irsdkSharp (e.g. a stale shared-memory
@@ -79,18 +83,31 @@ public class IracingService : IDisposable
         int carIdx = GetInt("PlayerCarIdx");
 
         string? yaml = _sdk.GetSessionInfo();
-        if (!string.IsNullOrEmpty(yaml) && yaml != _lastYaml)
+        bool yamlChanged = !string.IsNullOrEmpty(yaml) && yaml != _lastYaml;
+        bool carChanged  = carIdx != _lastCarIdx;
+
+        if (yamlChanged || carChanged)
         {
-            _lastYaml = yaml;
-            RefreshStaticData(yaml, sessionNum);
+            if (yamlChanged)
+            {
+                _lastYaml = yaml;
+                RefreshStaticData(yaml!, sessionNum);
+                _sessionType = FormatSessionType(IracingYaml.GetSessionValue(yaml!, sessionNum, "SessionType"));
+                if (Logger.Enabled) Logger.Log($"Session info refreshed (SessionNum={sessionNum}, CarIdx={carIdx})");
+                TrackCollector.Record(_trackName, _trackConfig, _trackCodeName);
+            }
 
-            string? carName = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort");
-            string? carCodeName = IracingYaml.GetDriverValue(yaml, carIdx, "CarPath");
-            _carCodeName = carCodeName ?? string.Empty;
-
-            Logger.Log($"Session info refreshed (SessionNum={sessionNum}, CarIdx={carIdx})");
-            TrackCollector.Record(_trackName, _trackConfig, _trackCodeName);
-            if (carName != null) CarCollector.Record(carName, carCodeName ?? string.Empty);
+            if (_lastYaml is not null)
+            {
+                string? carName     = IracingYaml.GetDriverValue(_lastYaml, carIdx, "CarScreenNameShort");
+                string? carCodeName = IracingYaml.GetDriverValue(_lastYaml, carIdx, "CarPath");
+                string? iratingStr  = IracingYaml.GetDriverValue(_lastYaml, carIdx, "IRating");
+                _carName       = carName ?? string.Empty;
+                _carCodeName   = carCodeName ?? string.Empty;
+                _playerIRating = iratingStr != null && int.TryParse(iratingStr, out int ir) ? ir : 0;
+                _lastCarIdx    = carIdx;
+                if (yamlChanged && carName != null) CarCollector.Record(carName, carCodeName ?? string.Empty);
+            }
         }
 
         if (sessionNum != _lastSessionNum)
@@ -104,17 +121,12 @@ public class IracingService : IDisposable
         data.TrackCodeName = _trackCodeName;
         data.SessionStartUtc = _sessionStartUtc;
         data.StrengthOfField = _strengthOfField;
+        data.SessionType  = _sessionType;
+        data.CarName      = _carName;
+        data.CarCodeName  = _carCodeName;
+        data.PlayerIRating = _playerIRating;
 
-        if (_lastYaml is not null)
-        {
-            data.SessionType = FormatSessionType(IracingYaml.GetSessionValue(_lastYaml, sessionNum, "SessionType"));
-            data.CarName = IracingYaml.GetDriverValue(_lastYaml, carIdx, "CarScreenNameShort") ?? string.Empty;
-            data.CarCodeName = _carCodeName;
-            data.PlayerIRating = IracingYaml.GetDriverValue(_lastYaml, carIdx, "IRating") is { } iratingStr
-                && int.TryParse(iratingStr, out int irating) ? irating : 0;
-        }
-
-        Logger.Log(FormatPollBlock(data, sessionFlags));
+        if (Logger.Enabled) Logger.Log(FormatPollBlock(data, sessionFlags));
 
         return data;
     }
