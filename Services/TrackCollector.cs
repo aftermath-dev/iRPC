@@ -10,13 +10,19 @@ public static class TrackCollector
     private static readonly HashSet<string> _seen = Load();
     private static readonly object _lock = new();
 
-    public static void Record(string trackName, string trackConfig)
+    public static bool Enabled { get; set; } = false;
+
+    public static void Record(string trackName, string trackConfig, string trackCodeName)
     {
+        if (!Enabled) return;
         if (string.IsNullOrWhiteSpace(trackName)) return;
 
         string entry = string.IsNullOrWhiteSpace(trackConfig)
             ? trackName
             : $"{trackName} | {trackConfig}";
+
+        if (!string.IsNullOrWhiteSpace(trackCodeName))
+            entry += $" | {trackCodeName}";
 
         lock (_lock)
         {

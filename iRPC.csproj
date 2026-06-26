@@ -8,8 +8,8 @@
     <AssemblyName>iRPC</AssemblyName>
     <RootNamespace>iRPC</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.0.5</Version>
-    <InformationalVersion>0.0.5</InformationalVersion>
+    <Version>0.0.7</Version>
+    <InformationalVersion>0.0.7</InformationalVersion>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationIcon>ArtAssets\icon.ico</ApplicationIcon>
   </PropertyGroup>
@@ -19,5 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ArtAssets\icon.ico" Condition="Exists('ArtAssets\icon.ico')" />
+    <EmbeddedResource Include="car_brands.json" />
+    <EmbeddedResource Include="track_defaults.json" />
   </ItemGroup>
 </Project>

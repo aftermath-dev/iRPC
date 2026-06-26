@@ -5,10 +5,17 @@ using System.Windows.Forms;
 
 namespace iRPC;
 
+public interface ITemplateEditor
+{
+    string GetTemplate();
+    void SetFromTemplate(string template);
+    event Action? Changed;
+}
+
 public record BrickDef(string Key, string Label, string Tip);
 
 // Horizontal brick row with drag-to-reorder + clickable pool below it.
-public class BrickRow : Control
+public class BrickRow : Control, ITemplateEditor
 {
     public static readonly BrickDef[] All =
     [
@@ -21,10 +28,29 @@ public class BrickRow : Control
         new("laps_total",  "Lap Total",  "Lap progress (e.g. Lap 12/20)"),
         new("laps_remain", "Laps Left",  "Laps remaining (e.g. 8 laps left)"),
         new("time_remain", "Time",       "Time remaining (e.g. 45:23)"),
+        new("last_lap",    "Last Lap",   "Last lap time (e.g. LL 1:32.456)"),
+        new("best_lap",    "Best Lap",   "Best lap time this session (e.g. BL 1:31.987)"),
+        new("sof",         "SoF",        "Strength of field — iRating-based (e.g. SoF 2450)"),
+        new("irating",          "iRating",        "Your current iRating (e.g. iR 2450)"),
+        new("irating_avg5",     "iRating Avg 5",  "Average of your last 5 race-end iRatings (e.g. iR Avg5 2410)"),
+        new("irating_avg10",    "iRating Avg 10", "Average of your last 10 race-end iRatings (e.g. iR Avg10 2390)"),
+        new("irating_avg_custom", "iRating Avg (Custom)", "Average over the custom window set in App settings (e.g. iR Avg 2375)"),
+        new("class_position", "Class Pos",   "Position within your car class — multiclass races (e.g. P2 in class)"),
+        new("sky",             "Sky",         "Current sky condition (e.g. Partly Cloudy)"),
+        new("air_temp_c",      "Air °C",      "Air temperature in Celsius (e.g. Air 24°C)"),
+        new("air_temp_f",      "Air °F",      "Air temperature in Fahrenheit (e.g. Air 75°F)"),
+        new("track_temp_c",    "Track °C",    "Track surface temperature in Celsius (e.g. Track 32°C)"),
+        new("track_temp_f",    "Track °F",    "Track surface temperature in Fahrenheit (e.g. Track 90°F)"),
+        new("pit_service",     "Pit Service", "Currently being serviced in the pits (empty otherwise)"),
+        new("pit_repair",      "Pit Repair",  "Mandatory damage repair time remaining (e.g. Repair 12s)"),
+        new("pit_opt_repair",  "Pit Opt Repair", "Optional/cosmetic repair time remaining (e.g. Opt Repair 8s)"),
+        new("fast_repairs",    "Fast Repairs", "Fast repairs used/available this race (e.g. FR 1/3)"),
+        new("incidents",       "Incidents",   "Incident points this session (e.g. 3x)"),
         new("speed_kmh",   "km/h",       "Current speed in km/h"),
         new("speed_mph",   "mph",        "Current speed in mph"),
-        new("fuel",        "Fuel",       "Fuel level in litres (e.g. 45.2L)"),
-        new("fuel_pct",    "Fuel %",     "Fuel percentage (e.g. 60%)"),
+        new("fuel",        "Fuel L",     "Fuel level in litres (e.g. F 45.2L)"),
+        new("fuel_gal",    "Fuel gal",   "Fuel level in US gallons (e.g. F 11.9gal)"),
+        new("fuel_pct",    "Fuel %",     "Fuel percentage (e.g. F 60%)"),
         new("flag",        "Flag",       "Caution or Checkered (empty otherwise)"),
         new("pit",         "Pit",        "In Pits (empty otherwise)"),
         new("garage",      "Garage",     "In Garage (empty otherwise)"),
@@ -132,7 +158,7 @@ public class BrickRow : Control
         {
             if (_active.Contains(def.Key)) continue;
             int w = W(def.Key);
-            if (x > 0 && x + w > Width) { x = 0; py += H + Gap; }
+            if (x > 0 && x + w > WrapWidth) { x = 0; py += H + Gap; }
             bool hov = _hoverPoolKey == def.Key;
             DrawBrick(g, x, py, w, def.Label, false, false, false, hov);
             x += w + Gap;
@@ -282,7 +308,7 @@ public class BrickRow : Control
             {
                 if (_active.Contains(def.Key)) continue;
                 int w = W(def.Key);
-                if (x > 0 && x + w > Width) { x = 0; py += H + Gap; }
+                if (x > 0 && x + w > WrapWidth) { x = 0; py += H + Gap; }
                 if (my >= py && my < py + H && mx >= x && mx < x + w)
                     return (-1, false, def.Key);
                 x += w + Gap;
@@ -305,6 +331,27 @@ public class BrickRow : Control
         return _active.Count;
     }
 
+    private int WrapWidth => Math.Max(Width, 400);
+
+    // Worst-case height for a BrickRow at the given width: every brick sitting unassigned in
+    // the pool (none active), which is the tallest the control can ever wrap to. Callers that
+    // need to reserve fixed layout space below a BrickRow (so the control beneath it doesn't
+    // shift as bricks move between active/pool) should size against this instead of guessing.
+    public static int MaxHeight(int width)
+    {
+        int wrap = Math.Max(width, 400);
+        using var bmp = new Bitmap(1, 1);
+        using var g = Graphics.FromImage(bmp);
+        int x = 0, rows = 1;
+        foreach (var def in All)
+        {
+            int w = (int)Math.Ceiling(g.MeasureString(def.Label, BFont).Width) + PadX * 2 + ClsW + 2;
+            if (x > 0 && x + w > wrap) { rows++; x = 0; }
+            x += w + Gap;
+        }
+        return PoolY + rows * (H + Gap) + 4;
+    }
+
     private void RecalcHeight()
     {
         int x = 0, rows = 1;
@@ -312,7 +359,7 @@ public class BrickRow : Control
         {
             if (_active.Contains(def.Key)) continue;
             int w = W(def.Key);
-            if (x > 0 && x + w > Math.Max(Width, 400)) { rows++; x = 0; }
+            if (x > 0 && x + w > WrapWidth) { rows++; x = 0; }
             x += w + Gap;
         }
         Height = PoolY + rows * (H + Gap) + 4;

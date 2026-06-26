@@ -1,0 +1,307 @@
+{
+  "brand_acura": [
+    "car_acuraarx06gtp",
+    "car_acuransxevo22gt3"
+  ],
+  "brand_aston_martin": [
+    "car_amvantageevogt3",
+    "car_amvantagegt4",
+    "car_dbr9"
+  ],
+  "brand_audi": [
+    "car_audi90gto",
+    "car_audir18",
+    "car_audir8gt3",
+    "car_audir8lmsevo2gt3",
+    "car_audirs3lms",
+    "car_audirs3lmsgen2"
+  ],
+  "brand_bmw": [
+    "car_bmwlmdh",
+    "car_bmwm2csr",
+    "car_bmwm2g87",
+    "car_bmwm4evogt4",
+    "car_bmwm4gt3",
+    "car_bmwm4gt4",
+    "car_bmwm8gte",
+    "car_bmwz4gt3",
+    "car_pcbmwm2csr"
+  ],
+  "brand_buick": [
+    "car_buicklesabre87"
+  ],
+  "brand_cadillac": [
+    "car_cadillacctsvr",
+    "car_cadillacvseriesrgtp"
+  ],
+  "brand_candr": [
+    "car_silvercrown"
+  ],
+  "brand_cars": [
+    "car_latemodel",
+    "car_latemodel2023",
+    "car_superlatemodel"
+  ],
+  "brand_chevrolet": [
+    "car_c6r",
+    "car_c7vettedp",
+    "car_c8rvettegte",
+    "car_chevyvettez06rgt3",
+    "car_camarozl12018",
+    "car_chevycamarozl12022",
+    "car_chevymontecarlo03",
+    "car_chevymontecarlo87",
+    "car_chevyss",
+    "car_ss",
+    "car_impala",
+    "car_camaro2019",
+    "car_chevy",
+    "car_nwcamaro2014",
+    "car_arcachevy25",
+    "car_chevycamarogen3",
+    "car_silverado",
+    "car_silverado2015",
+    "car_silverado2019",
+    "car_cruze",
+    "car_cot",
+    "car_gen4cup"
+  ],
+  "brand_dallara": [
+    "car_dallara",
+    "car_dallaradw12",
+    "car_dallaraf3",
+    "car_dallarail15",
+    "car_dallarair01",
+    "car_dallarair18",
+    "car_dallarap217"
+  ],
+  "brand_dirtcar_racing": [
+    "car_dirtmicrosprint",
+    "car_dirtsprint",
+    "car_nonwinged",
+    "car_outlaw",
+    "car_winged",
+    "car_dirtlatemodel",
+    "car_dirtmidget",
+    "car_dirtministock",
+    "car_dirtmodified",
+    "car_dirtstreetstock",
+    "car_dirtumpmod",
+    "car_350",
+    "car_358",
+    "car_438",
+    "car_bigblock",
+    "car_305",
+    "car_360",
+    "car_410"
+  ],
+  "brand_dodge": [
+    "car_ram2026"
+  ],
+  "brand_ferrari": [
+    "car_ferrari296challenge",
+    "car_ferrari296gt3",
+    "car_ferrari488gt3",
+    "car_ferrari488gte",
+    "car_ferrari499p",
+    "car_ferrarievogt3"
+  ],
+  "brand_fia": [
+    "car_crosscartn11",
+    "car_formulair04"
+  ],
+  "brand_ford": [
+    "car_fordgt",
+    "car_fordgt2017",
+    "car_fordmustanggt3",
+    "car_fordmustanggt4",
+    "car_fordv8sc",
+    "car_fordfiestarswrc",
+    "car_fr500s",
+    "car_fordfusion",
+    "car_fordmustang2019",
+    "car_fordmustang2022",
+    "car_fordtaurus03",
+    "car_fordthunderbird87",
+    "car_mustang2019",
+    "car_nwford2013",
+    "car_arcaford25",
+    "car_fordmustanggen3",
+    "car_ford2014",
+    "car_fordmustanggt",
+    "car_fordf150",
+    "car_ford34c",
+    "car_dirtford34c",
+    "car_gt3",
+    "car_pcfr500s",
+    "car_legends"
+  ],
+  "brand_formula_vee": [
+    "car_formulavee",
+    "car_formulavee2",
+    "car_formulavee3"
+  ],
+  "brand_holden": [
+    "car_holden2014",
+    "car_holden2019"
+  ],
+  "brand_honda": [
+    "car_hondacivictyper",
+    "car_hpdarx01c"
+  ],
+  "brand_hyundai": [
+    "car_hyundaielantracn7",
+    "car_hyundaivelostern"
+  ],
+  "brand_kia": [
+    "car_kiaoptima"
+  ],
+  "brand_lamborghini": [
+    "car_lamborghinievogt3"
+  ],
+  "brand_ligier": [
+    "car_ligierjsp320"
+  ],
+  "brand_lotus": [
+    "car_lotus49",
+    "car_lotus79"
+  ],
+  "brand_lucas_oil": [
+    "car_pro2lite",
+    "car_pro2truck",
+    "car_pro4truck"
+  ],
+  "brand_mazda": [
+    "car_formulamazda",
+    "car_mx5",
+    "car_mx52016",
+    "car_cup",
+    "car_roadster"
+  ],
+  "brand_mclaren": [
+    "car_mclaren570sgt4",
+    "car_mclaren720sgt3",
+    "car_mclarenmp4",
+    "car_mclarenmp430"
+  ],
+  "brand_mercedes": [
+    "car_mercedesamgevogt3",
+    "car_mercedesamggt3",
+    "car_mercedesamggt4",
+    "car_mercedesw12",
+    "car_mercedesw13"
+  ],
+  "brand_nissan": [
+    "car_nissangtpzxt"
+  ],
+  "brand_pontiac": [
+    "car_pontiacgrandprix87",
+    "car_solstice",
+    "car_pcsolstice",
+    "car_rookie"
+  ],
+  "brand_porsche": [
+    "car_porsche718gt4",
+    "car_porsche911cup",
+    "car_porsche911rgt3",
+    "car_porsche919",
+    "car_porsche963gtp",
+    "car_porsche991rsr",
+    "car_porsche9922cup",
+    "car_porsche992cup",
+    "car_porsche992rgt3",
+    "car_porschemissionr",
+    "car_pcporsche911cup"
+  ],
+  "brand_radical": [
+    "car_sr8",
+    "car_radicalsr10"
+  ],
+  "brand_ray": [
+    "car_raygr22"
+  ],
+  "brand_renault": [
+    "car_renaultcliocup",
+    "car_formularenault20",
+    "car_formularenault35"
+  ],
+  "brand_riley": [
+    "car_rileydp"
+  ],
+  "brand_ruf": [
+    "car_rufrt12r",
+    "car_awd",
+    "car_rwd",
+    "car_cspec",
+    "car_pcrufrt12r",
+    "car_track"
+  ],
+  "brand_scca": [
+    "car_specracer"
+  ],
+  "brand_skip_barber": [
+    "car_rt2000"
+  ],
+  "brand_srx": [
+    "car_srx"
+  ],
+  "brand_subaru": [
+    "car_subaruwrxsti"
+  ],
+  "brand_super_formula": [
+    "car_superformulalights324",
+    "car_superformulasf23",
+    "car_honda",
+    "car_toyota"
+  ],
+  "brand_tatuus": [
+    "car_indypropm18"
+  ],
+  "brand_team_fj": [
+    "car_euronascar"
+  ],
+  "brand_toyota": [
+    "car_toyotacamry",
+    "car_toyotacamry2022",
+    "car_camry2015",
+    "car_supra2019",
+    "car_arcatoyota25",
+    "car_toyotagr86",
+    "car_toyotatundra2022",
+    "car_tundra2015",
+    "car_corolla"
+  ],
+  "brand_usf": [
+    "car_usf2000usf17"
+  ],
+  "brand_volkswagen": [
+    "car_jettatdi",
+    "car_vwbeetlegrc",
+    "car_lite"
+  ],
+  "brand_williams": [
+    "car_williamsfw31"
+  ],
+  "iracing_logo": [
+    "car_ministock",
+    "car_sprint",
+    "car_streetstock",
+    "car_streetstock2",
+    "car_streetstock3",
+    "car_skmodified",
+    "car_tour",
+    "car_pcsedan",
+    "car_pctruck"
+  ],
+
+
+  "brand_unsorted": [
+    "car_cars",
+    "car_stockcarbrasil",
+    "car_stockcars",
+    "car_stockcars2",
+    "car_supercars",
+    "car_trucks",
+    "car_v8supercars"
+  ]
+}
