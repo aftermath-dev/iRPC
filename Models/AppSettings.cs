@@ -25,6 +25,7 @@ public class AppSettings
     public bool ShowGitHubButton { get; set; } = true;
     public bool DebugMode { get; set; } = false;
     public bool TrackAndCarLogging { get; set; } = false;
+    public bool ClassicTemplateEditor { get; set; } = false;
     public int IRatingAvgCustomWindow { get; set; } = 20;
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -36,7 +37,7 @@ public class AppSettings
     public string LargeTextTemplate { get; set; } = "{track} - {config}";
     public string SmallTextTemplate { get; set; } = "{car}";
 
-    public Dictionary<string, SessionPresenceConfig> SessionTemplates { get; set; } = DefaultTemplates();
+    public Dictionary<string, SessionPresenceConfig> SessionTemplates { get; set; } = new(DefaultTemplates);
 
     public SessionPresenceConfig GetTemplate(string sessionType)
     {
@@ -52,7 +53,7 @@ public class AppSettings
             {
                 var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new();
                 // Ensure all session types are present after upgrades
-                foreach (var kv in DefaultTemplates())
+                foreach (var kv in DefaultTemplates)
                     loaded.SessionTemplates.TryAdd(kv.Key, kv.Value);
                 // "Default" was removed as a session type — drop any leftover entry from older settings files
                 loaded.SessionTemplates.Remove("Default");
@@ -78,7 +79,7 @@ public class AppSettings
         catch { }
     }
 
-    public static Dictionary<string, SessionPresenceConfig> DefaultTemplates() => new()
+    public static readonly Dictionary<string, SessionPresenceConfig> DefaultTemplates = new()
     {
         ["Practice"] = new() 
         { 

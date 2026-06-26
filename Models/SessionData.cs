@@ -28,7 +28,8 @@ public class SessionData
     public int PlayerIRating { get; set; }    // 0 = unranked / not yet read
     public int IRatingAvg5 { get; set; }       // average of player's last 5 race-end iRatings; 0 = no history yet
     public int IRatingAvg10 { get; set; }      // average of player's last 10 race-end iRatings; 0 = no history yet
-    public int IRatingAvgCustom { get; set; }  // average over AppSettings.IRatingAvgCustomWindow races; 0 = no history yet
+    public int IRatingAvgCustom { get; set; }       // average over IRatingAvgCustomWindow races; 0 = no history yet
+    public int IRatingAvgCustomWindow { get; set; } // window size carried from AppSettings so ApplyTemplate can use it
     public int ClassPosition { get; set; }     // position within player's car class (multiclass races); 0 outside race
     public float AirTempC { get; set; }
     public float TrackTempC { get; set; }

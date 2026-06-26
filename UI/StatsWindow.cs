@@ -42,23 +42,22 @@ public class StatsWindow : Form
         StartPosition   = FormStartPosition.CenterScreen;
         MaximizeBox     = false;
         MinimizeBox     = false;
-        ClientSize      = new Size(420, 600);
+        ClientSize      = new Size(420, 680);
         BackColor       = BgForm;
 
-        _content = new Panel { Left = 0, Top = 0, Width = 420, Height = 540, BackColor = BgForm };
+        _content = new Panel { Left = 0, Top = 0, Width = 420, Height = 640, AutoScroll = true, BackColor = BgForm };
         Controls.Add(_content);
         Render(stats);
 
         var btnClose = new Button
         {
-            Text = "Close", Left = 320, Top = 560, Width = 80, Height = 26,
+            Text = "Close", Left = 320, Top = 644, Width = 80, Height = 26,
             FlatStyle = FlatStyle.Flat, BackColor = BgClose, ForeColor = Color.White,
             Font = new Font("Segoe UI", 9f), Cursor = Cursors.Hand,
-            DialogResult = DialogResult.Cancel,
         };
         btnClose.FlatAppearance.BorderSize = 0;
+        btnClose.Click += (_, _) => Close();
         Controls.Add(btnClose);
-        CancelButton = btnClose;
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _refreshTimer.Tick += (_, _) => Render(StatsTracker.Snapshot());
@@ -81,6 +80,9 @@ public class StatsWindow : Form
 
         Header("Total Time On Track", x, ref y);
         Value(FormatDuration(stats.TotalSeconds), x, ref y, big: true);
+        Row("Laps",      $"{stats.TotalLaps:N0}", x, ref y);
+        Row("Distance",  FormatDistance(stats.TotalDistanceM), x, ref y);
+        Row("Incidents", $"{stats.TotalIncidents:N0}", x, ref y);
         y += 10;
 
         Divider(x, ref y);
@@ -91,10 +93,15 @@ public class StatsWindow : Form
             foreach (string key in SessionOrder.Concat(
                          stats.SecondsBySessionType.Keys.Except(SessionOrder).OrderBy(k => k)))
             {
-                long secs = stats.SecondsBySessionType.GetValueOrDefault(key);
+                ulong secs = stats.SecondsBySessionType.GetValueOrDefault(key);
                 if (secs == 0) continue;
                 Row(key, FormatDuration(secs), x, ref y);
             }
+
+        y += 6;
+        Divider(x, ref y);
+        Header("Laps by Track", x, ref y);
+        TopLapsList(stats.LapsByTrack, x, ref y);
 
         y += 6;
         Divider(x, ref y);
@@ -116,16 +123,18 @@ public class StatsWindow : Form
         }
     }
 
-    private void TopList(Dictionary<string, long> map, int x, ref int y)
+    private void TopList(Dictionary<string, ulong> map, int x, ref int y)
     {
-        if (map.Count == 0)
-        {
-            Muted("No data yet.", x, ref y);
-            return;
-        }
-
+        if (map.Count == 0) { Muted("No data yet.", x, ref y); return; }
         foreach (var kv in map.OrderByDescending(kv => kv.Value).Take(5))
             Row(kv.Key, FormatDuration(kv.Value), x, ref y);
+    }
+
+    private void TopLapsList(Dictionary<string, ulong> map, int x, ref int y)
+    {
+        if (map.Count == 0) { Muted("No data yet.", x, ref y); return; }
+        foreach (var kv in map.OrderByDescending(kv => kv.Value).Take(5))
+            Row(kv.Key, $"{kv.Value:N0} laps", x, ref y);
     }
 
     private void Header(string text, int x, ref int y)
@@ -180,11 +189,18 @@ public class StatsWindow : Form
         y += 12;
     }
 
-    private static string FormatDuration(long totalSeconds)
+    private static string FormatDuration(ulong totalSeconds)
     {
-        var ts = TimeSpan.FromSeconds(totalSeconds);
+        const ulong maxSecs = 922_337_203_685;
+        var ts = TimeSpan.FromSeconds(Math.Min(totalSeconds, maxSecs));
         return ts.TotalHours >= 1
             ? $"{(int)ts.TotalHours}h {ts.Minutes}m"
             : $"{ts.Minutes}m {ts.Seconds}s";
+    }
+
+    private static string FormatDistance(ulong metres)
+    {
+        double km = metres / 1000.0;
+        return km >= 1000 ? $"{km / 1000:N2} Mm" : $"{km:N1} km";
     }
 }

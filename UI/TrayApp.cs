@@ -16,6 +16,8 @@ public class TrayApp : ApplicationContext
     private Icon? _plainIcon;
     private ConnState _connState = ConnState.Disconnected;
     private bool _presencePaused;
+    private SettingsWindow? _settingsWindow;
+    private StatsWindow? _statsWindow;
 
     private enum ConnState { Disconnected, IracingOnly, Full }
 
@@ -86,6 +88,7 @@ public class TrayApp : ApplicationContext
         IRatingTracker.Record(data);
         data.IRatingAvg5 = IRatingTracker.AverageOfLast(5);
         data.IRatingAvg10 = IRatingTracker.AverageOfLast(10);
+        data.IRatingAvgCustomWindow = _settings.IRatingAvgCustomWindow;
         data.IRatingAvgCustom = IRatingTracker.AverageOfLast(_settings.IRatingAvgCustomWindow);
         if (!_presencePaused)
             _discord.Update(data, _settings);
@@ -105,7 +108,13 @@ public class TrayApp : ApplicationContext
 
     private void OnSettings(object? sender, EventArgs e)
     {
-        using var win = new SettingsWindow(_settings, newSettings =>
+        if (_settingsWindow is { IsDisposed: false })
+        {
+            _settingsWindow.BringToFront();
+            _settingsWindow.Activate();
+            return;
+        }
+        var win = new SettingsWindow(_settings, newSettings =>
         {
             _settings = newSettings;
             Logger.Enabled = _settings.DebugMode;
@@ -114,13 +123,23 @@ public class TrayApp : ApplicationContext
             ApplyStartup(_settings.LaunchOnStartup);
         }, () => _pollBuffer.ToList());
         win.Icon = GetPlainIcon();
-        win.ShowDialog();
+        win.FormClosed += (_, _) => { win.Dispose(); _settingsWindow = null; };
+        _settingsWindow = win;
+        win.Show();
     }
 
     private void OnStats(object? sender, EventArgs e)
     {
-        using var win = new StatsWindow(StatsTracker.Snapshot()) { Icon = GetPlainIcon() };
-        win.ShowDialog();
+        if (_statsWindow is { IsDisposed: false })
+        {
+            _statsWindow.BringToFront();
+            _statsWindow.Activate();
+            return;
+        }
+        var win = new StatsWindow(StatsTracker.Snapshot()) { Icon = GetPlainIcon() };
+        win.FormClosed += (_, _) => { win.Dispose(); _statsWindow = null; };
+        _statsWindow = win;
+        win.Show();
     }
 
     private async void OnCheckForUpdates(object? sender, EventArgs e) =>

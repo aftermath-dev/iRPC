@@ -5,10 +5,17 @@ using System.Windows.Forms;
 
 namespace iRPC;
 
+public interface ITemplateEditor
+{
+    string GetTemplate();
+    void SetFromTemplate(string template);
+    event Action? Changed;
+}
+
 public record BrickDef(string Key, string Label, string Tip);
 
 // Horizontal brick row with drag-to-reorder + clickable pool below it.
-public class BrickRow : Control
+public class BrickRow : Control, ITemplateEditor
 {
     public static readonly BrickDef[] All =
     [
@@ -21,8 +28,8 @@ public class BrickRow : Control
         new("laps_total",  "Lap Total",  "Lap progress (e.g. Lap 12/20)"),
         new("laps_remain", "Laps Left",  "Laps remaining (e.g. 8 laps left)"),
         new("time_remain", "Time",       "Time remaining (e.g. 45:23)"),
-        new("last_lap",    "Last Lap",   "Last lap time (e.g. Last 1:32.456)"),
-        new("best_lap",    "Best Lap",   "Best lap time this session (e.g. Best 1:31.987)"),
+        new("last_lap",    "Last Lap",   "Last lap time (e.g. LL 1:32.456)"),
+        new("best_lap",    "Best Lap",   "Best lap time this session (e.g. BL 1:31.987)"),
         new("sof",         "SoF",        "Strength of field — iRating-based (e.g. SoF 2450)"),
         new("irating",          "iRating",        "Your current iRating (e.g. iR 2450)"),
         new("irating_avg5",     "iRating Avg 5",  "Average of your last 5 race-end iRatings (e.g. iR Avg5 2410)"),
@@ -30,10 +37,10 @@ public class BrickRow : Control
         new("irating_avg_custom", "iRating Avg (Custom)", "Average over the custom window set in App settings (e.g. iR Avg 2375)"),
         new("class_position", "Class Pos",   "Position within your car class — multiclass races (e.g. P2 in class)"),
         new("sky",             "Sky",         "Current sky condition (e.g. Partly Cloudy)"),
-        new("air_temp_c",      "Air °C",      "Air temperature in Celsius"),
-        new("air_temp_f",      "Air °F",      "Air temperature in Fahrenheit"),
-        new("track_temp_c",    "Track °C",    "Track surface temperature in Celsius"),
-        new("track_temp_f",    "Track °F",    "Track surface temperature in Fahrenheit"),
+        new("air_temp_c",      "Air °C",      "Air temperature in Celsius (e.g. Air 24°C)"),
+        new("air_temp_f",      "Air °F",      "Air temperature in Fahrenheit (e.g. Air 75°F)"),
+        new("track_temp_c",    "Track °C",    "Track surface temperature in Celsius (e.g. Track 32°C)"),
+        new("track_temp_f",    "Track °F",    "Track surface temperature in Fahrenheit (e.g. Track 90°F)"),
         new("pit_service",     "Pit Service", "Currently being serviced in the pits (empty otherwise)"),
         new("pit_repair",      "Pit Repair",  "Mandatory damage repair time remaining (e.g. Repair 12s)"),
         new("pit_opt_repair",  "Pit Opt Repair", "Optional/cosmetic repair time remaining (e.g. Opt Repair 8s)"),
@@ -41,8 +48,9 @@ public class BrickRow : Control
         new("incidents",       "Incidents",   "Incident points this session (e.g. 3x)"),
         new("speed_kmh",   "km/h",       "Current speed in km/h"),
         new("speed_mph",   "mph",        "Current speed in mph"),
-        new("fuel",        "Fuel",       "Fuel level in litres (e.g. 45.2L)"),
-        new("fuel_pct",    "Fuel %",     "Fuel percentage (e.g. 60%)"),
+        new("fuel",        "Fuel L",     "Fuel level in litres (e.g. F 45.2L)"),
+        new("fuel_gal",    "Fuel gal",   "Fuel level in US gallons (e.g. F 11.9gal)"),
+        new("fuel_pct",    "Fuel %",     "Fuel percentage (e.g. F 60%)"),
         new("flag",        "Flag",       "Caution or Checkered (empty otherwise)"),
         new("pit",         "Pit",        "In Pits (empty otherwise)"),
         new("garage",      "Garage",     "In Garage (empty otherwise)"),

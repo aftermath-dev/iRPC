@@ -15,6 +15,10 @@ public static class StatsTracker
     private static readonly StatsData _data = Load();
     private static int _ticksSinceSave;
 
+    private static int    _prevLap       = -1;
+    private static int    _prevIncidents = -1;
+    private static string _prevTrack     = "";
+
     public static void Record(SessionData data)
     {
         if (!data.IsConnected || !data.IsOnTrack || data.IsReplay) return;
@@ -25,6 +29,31 @@ public static class StatsTracker
             if (data.CarName.Length > 0) Increment(_data.SecondsByCar, data.CarName);
             if (data.TrackName.Length > 0) Increment(_data.SecondsByTrack, data.TrackName);
             _data.TotalSeconds++;
+
+            // Reset per-session counters when the track changes (new session).
+            if (data.TrackName != _prevTrack)
+            {
+                _prevTrack     = data.TrackName;
+                _prevLap       = data.CurrentLap;
+                _prevIncidents = data.IncidentCount;
+            }
+
+            // Laps — count forward jumps in CurrentLap only.
+            if (_prevLap >= 0 && data.CurrentLap > _prevLap)
+            {
+                ulong delta = (ulong)(data.CurrentLap - _prevLap);
+                _data.TotalLaps += delta;
+                if (data.TrackName.Length > 0) Increment(_data.LapsByTrack, data.TrackName, delta);
+            }
+            _prevLap = data.CurrentLap;
+
+            // Distance — Speed is m/s, poll is 1 Hz, so each tick ≈ Speed metres.
+            _data.TotalDistanceM += (ulong)data.Speed;
+
+            // Incidents — cumulative per session; add positive deltas only.
+            if (_prevIncidents >= 0 && data.IncidentCount > _prevIncidents)
+                _data.TotalIncidents += (ulong)(data.IncidentCount - _prevIncidents);
+            _prevIncidents = data.IncidentCount;
 
             // Avoid hitting disk every second — flush periodically and rely on Flush() at exit
             // to catch the last partial window.
@@ -46,8 +75,8 @@ public static class StatsTracker
         lock (_lock) Save(_data);
     }
 
-    private static void Increment(Dictionary<string, long> map, string key) =>
-        map[key] = map.GetValueOrDefault(key) + 1;
+    private static void Increment(Dictionary<string, ulong> map, string key, ulong delta = 1) =>
+        map[key] = map.GetValueOrDefault(key) + delta;
 
     private static StatsData Load()
     {
