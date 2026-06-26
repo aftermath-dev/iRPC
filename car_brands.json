@@ -52,6 +52,7 @@
     "car_chevymontecarlo03",
     "car_chevymontecarlo87",
     "car_chevyss",
+    "car_ss",
     "car_impala",
     "car_camaro2019",
     "car_chevy",
@@ -132,7 +133,8 @@
     "car_ford34c",
     "car_dirtford34c",
     "car_gt3",
-    "car_pcfr500s"
+    "car_pcfr500s",
+    "car_legends"
   ],
   "brand_formula_vee": [
     "car_formulavee",
@@ -285,17 +287,16 @@
     "car_sprint",
     "car_streetstock",
     "car_streetstock2",
-    "car_streetstock3"
+    "car_streetstock3",
+    "car_skmodified",
+    "car_tour",
+    "car_pcsedan",
+    "car_pctruck"
   ],
 
 
   "brand_unsorted": [
-    "car_skmodified",
-    "car_ss",
-    "car_tour",
-    "car_pcsedan",
-    "car_pctruck",
-    "car_legends",
+    "car_cars",
     "car_stockcarbrasil",
     "car_stockcars",
     "car_stockcars2",
