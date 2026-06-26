@@ -210,7 +210,7 @@ public class DiscordService : IDisposable
 
         string? smallUrl = s.SmallIcon switch
         {
-            SmallIconMode.CarBrand    => BrandUrl(data.CarName),
+            SmallIconMode.CarBrand    => BrandUrl(data.CarName, data.CarCodeName),
             SmallIconMode.SessionType => SessionIconUrl(data.SessionType),
             _                         => null,
         };
@@ -245,34 +245,44 @@ public class DiscordService : IDisposable
         return $"{AssetBase}/Tracks/{mapped}.png";
     }
 
-    // Series names shared by multiple real manufacturers (e.g. "ARCA Ford"/"ARCA Chevrolet"/
-    // "ARCA Toyota", "Formula Renault"/"Formula Mazda"/"Formula Vee") collapse to the same
-    // first-word key, which would make any override ambiguous. For these, key off the first
-    // two words instead so each manufacturer/variant gets its own resolvable key.
+    // Series names shared by multiple real manufacturers (e.g. "Formula Renault"/"Formula Mazda"/
+    // "Formula Vee") collapse to the same first-word key, which would make any override ambiguous.
+    // For these, key off the first two words instead so each variant gets its own resolvable key.
     private static readonly HashSet<string> AmbiguousBrandPrefixes =
-        new(StringComparer.OrdinalIgnoreCase) { "arca", "formula", "super" };
+        new(StringComparer.OrdinalIgnoreCase) { "formula", "super" };
 
-    // Known multi-word manufacturer names whose first word alone doesn't match an asset
-    // filename — these are facts about the car roster, not something a user should have to
-    // configure via key_overrides.json.
-    private static readonly Dictionary<string, string> BrandAliases =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["aston"] = "aston_martin",
-            ["mercedes_amg"] = "mercedes",
-        };
+    // For series-branded cars where the first word is a series label and a middle word is a
+    // sponsor/series name — the actual manufacturer sits at this word index.
+    // e.g. "ARCA Menards Chevrolet": index 0 = "ARCA" (series), 1 = "Menards" (sponsor), 2 = manufacturer.
+    private static readonly Dictionary<string, int> SeriesBrandWordIndex =
+        new(StringComparer.OrdinalIgnoreCase) { ["arca"] = 2 };
 
-    private static string? BrandUrl(string carName)
+    private static string? BrandUrl(string carName, string carCodeName)
     {
+        // Primary: look up by car codename leaf (e.g. "stockcars\camarozl12018" → "camarozl12018").
+        if (!string.IsNullOrWhiteSpace(carCodeName))
+        {
+            string leaf = carCodeName.Split('/', '\\').Last();
+            if (AssetKey(leaf) is { } leafKey)
+            {
+                string carKey = $"car_{leafKey}";
+                string carMapped = KeyOverrides.Apply(carKey);
+                if (carMapped != carKey)
+                    return $"{AssetBase}/Brands/{carMapped}.png";
+            }
+        }
+
+        // Fallback: derive brand from first word of CarScreenNameShort.
         string[] words = carName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0 || AssetKey(words[0]) is not { } firstKey) return null;
 
-        string lookupKey = AmbiguousBrandPrefixes.Contains(firstKey) && words.Length > 1
-            ? AssetKey($"{words[0]} {words[1]}") ?? firstKey
-            : firstKey;
-
-        if (BrandAliases.TryGetValue(lookupKey, out string? alias))
-            lookupKey = alias;
+        string lookupKey;
+        if (SeriesBrandWordIndex.TryGetValue(firstKey, out int brandIdx) && words.Length > brandIdx)
+            lookupKey = AssetKey(words[brandIdx]) ?? firstKey;
+        else if (AmbiguousBrandPrefixes.Contains(firstKey) && words.Length > 1)
+            lookupKey = AssetKey($"{words[0]} {words[1]}") ?? firstKey;
+        else
+            lookupKey = firstKey;
 
         string mapped = KeyOverrides.Apply($"brand_{lookupKey}");
         return $"{AssetBase}/Brands/{mapped}.png";

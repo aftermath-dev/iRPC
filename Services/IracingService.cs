@@ -39,7 +39,13 @@ public class IracingService : IDisposable
         var data = new SessionData();
 
         if (!_sdk.IsConnected())
+        {
+            // Reset session tracking so a reconnect always stamps a fresh start time,
+            // even if the new session has the same SessionNum as the previous one.
+            _lastSessionNum = -1;
+            _sessionStartUtc = null;
             return data;
+        }
 
         data.IsConnected = true;
         data.IsOnTrack = GetBool("IsOnTrack");

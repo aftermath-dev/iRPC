@@ -220,6 +220,24 @@ public class SettingsWindow : Form
         scroll.Controls.Add(btnScan);
         y += 34;
 
+        var btnOpenFolder = new Button
+        {
+            Text = "Open Data Folder",
+            Left = x, Top = y, Width = 160, Height = 26,
+            FlatStyle = FlatStyle.Flat, BackColor = BgClose, ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9f), Cursor = Cursors.Hand,
+        };
+        btnOpenFolder.FlatAppearance.BorderSize = 0;
+        btnOpenFolder.Click += (_, _) =>
+        {
+            string folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "iRPC");
+            Directory.CreateDirectory(folder);
+            System.Diagnostics.Process.Start("explorer.exe", folder);
+        };
+        scroll.Controls.Add(btnOpenFolder);
+        y += 34;
+
         // ── Bottom bar ───────────────────────────────────────────
         var bar = new Panel { Left = 0, Top = 666, Width = 520, Height = 44, BackColor = Color.FromArgb(30, 31, 34) };
 
