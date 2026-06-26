@@ -30,8 +30,7 @@ public static class UpdateChecker
             foreach (var asset in assets.EnumerateArray())
             {
                 string name = asset.GetProperty("name").GetString() ?? "";
-                if (name.StartsWith("iRPC-", StringComparison.OrdinalIgnoreCase) &&
-                    name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                if (name.Equals("iRPC.exe", StringComparison.OrdinalIgnoreCase))
                 {
                     assetName = name;
                     assetUrl = asset.GetProperty("browser_download_url").GetString();
