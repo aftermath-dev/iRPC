@@ -89,39 +89,6 @@ public static class KeyOverrides
         Save(_map);
     }
 
-    // Reads tracks.txt and adds any keys not already in the overrides file,
-    // using an identity mapping so users can see and edit them.
-    public static void SyncFromTracks()
-    {
-        try
-        {
-            string tracksFile = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "iRPC", "tracks.txt");
-
-            if (!File.Exists(tracksFile)) return;
-
-            bool changed = false;
-            foreach (string line in File.ReadAllLines(tracksFile))
-            {
-                string trackName = line.Contains('|')
-                    ? line[..line.IndexOf('|')].Trim()
-                    : line.Trim();
-
-                if (string.IsNullOrWhiteSpace(trackName)) continue;
-
-                string key = $"track_{Sanitize(trackName)}";
-                // Skip tracks already handled by built-in TrackDefaults; only add user-visible
-                // identity entries for tracks that have no automatic default mapping.
-                if (!TrackDefaults.ContainsKey(key) && _map.TryAdd(key, key))
-                    changed = true;
-            }
-
-            if (changed) Save(_map);
-        }
-        catch { }
-    }
-
     private static Dictionary<string, string> Load()
     {
         try

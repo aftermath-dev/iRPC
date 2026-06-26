@@ -23,7 +23,6 @@ public class AppSettings
     public bool LaunchOnStartup { get; set; } = false;
     public bool CheckForUpdatesOnStartup { get; set; } = true;
     public bool ShowGitHubButton { get; set; } = true;
-    public bool AutoPopulateKeyOverrides { get; set; } = true;
     public bool DebugMode { get; set; } = false;
     public bool TrackAndCarLogging { get; set; } = false;
     public int IRatingAvgCustomWindow { get; set; } = 20;

@@ -54,7 +54,6 @@ public class SettingsWindow : Form
     private readonly CheckBox _cbLaunchOnStartup;
     private readonly CheckBox _cbCheckForUpdatesOnStartup;
     private readonly CheckBox _cbShowGitHubButton;
-    private readonly CheckBox _cbAutoPopulateKeyOverrides;
     private readonly CheckBox _cbDebugMode;
     private readonly CheckBox _cbTrackAndCarLogging;
     private readonly NumericUpDown _nudIRatingWindow;
@@ -167,27 +166,10 @@ public class SettingsWindow : Form
         _cbLaunchOnStartup          = Cb(scroll, "Launch on Windows startup",              current.LaunchOnStartup,          x, ref y);
         _cbCheckForUpdatesOnStartup = Cb(scroll, "Check for updates on startup",           current.CheckForUpdatesOnStartup, x, ref y);
         _cbShowGitHubButton         = Cb(scroll, "Show GitHub button",                     current.ShowGitHubButton,         x, ref y);
-        _cbAutoPopulateKeyOverrides = Cb(scroll, "Auto-populate key overrides from tracks", current.AutoPopulateKeyOverrides, x, ref y);
 
         FieldLabel(scroll, "Custom iRating avg window (races)", x, ref y);
         _nudIRatingWindow = Nud(scroll, x, y, 80, current.IRatingAvgCustomWindow);
         y += 32;
-
-        var btnKeyOverrides = new Button
-        {
-            Text = "Edit Key Overrides…",
-            Left = x, Top = y, Width = 160, Height = 26,
-            FlatStyle = FlatStyle.Flat, BackColor = BgClose, ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9f), Cursor = Cursors.Hand,
-        };
-        btnKeyOverrides.FlatAppearance.BorderSize = 0;
-        btnKeyOverrides.Click += (_, _) =>
-        {
-            using var dlg = new KeyOverridesDialog { Icon = Icon };
-            dlg.ShowDialog(this);
-        };
-        scroll.Controls.Add(btnKeyOverrides);
-        y += 34;
 
         // ── Debug section ────────────────────────────────────────
         Divider(scroll, x, ref y);
@@ -331,7 +313,6 @@ public class SettingsWindow : Form
             LaunchOnStartup          = _cbLaunchOnStartup.Checked,
             CheckForUpdatesOnStartup = _cbCheckForUpdatesOnStartup.Checked,
             ShowGitHubButton         = _cbShowGitHubButton.Checked,
-            AutoPopulateKeyOverrides = _cbAutoPopulateKeyOverrides.Checked,
             DebugMode                = _cbDebugMode.Checked,
             TrackAndCarLogging       = _cbTrackAndCarLogging.Checked,
             IRatingAvgCustomWindow   = (int)_nudIRatingWindow.Value,

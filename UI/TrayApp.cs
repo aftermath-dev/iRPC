@@ -68,9 +68,6 @@ public class TrayApp : ApplicationContext
         CarCollector.Enabled = _settings.TrackAndCarLogging;
         ApplyStartup(_settings.LaunchOnStartup);
 
-        if (_settings.AutoPopulateKeyOverrides)
-            KeyOverrides.SyncFromTracks();
-
         // Silent startup check — only notify if an update is available
         if (_settings.CheckForUpdatesOnStartup)
             _ = CheckForUpdatesAsync(silent: true);

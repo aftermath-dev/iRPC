@@ -34,6 +34,14 @@
     "car_cadillacctsvr",
     "car_cadillacvseriesrgtp"
   ],
+  "brand_candr": [
+    "car_silvercrown"
+  ],
+  "brand_cars": [
+    "car_latemodel",
+    "car_latemodel2023",
+    "car_superlatemodel"
+  ],
   "brand_chevrolet": [
     "car_c6r",
     "car_c7vettedp",
@@ -66,6 +74,29 @@
     "car_dallarair18",
     "car_dallarap217"
   ],
+  "brand_dirtcar_racing": [
+    "car_dirtmicrosprint",
+    "car_dirtsprint",
+    "car_nonwinged",
+    "car_outlaw",
+    "car_winged",
+    "car_dirtlatemodel",
+    "car_dirtmidget",
+    "car_dirtministock",
+    "car_dirtmodified",
+    "car_dirtstreetstock",
+    "car_dirtumpmod",
+    "car_350",
+    "car_358",
+    "car_438",
+    "car_bigblock",
+    "car_305",
+    "car_360",
+    "car_410"
+  ],
+  "brand_dodge": [
+    "car_ram2026"
+  ],
   "brand_ferrari": [
     "car_ferrari296challenge",
     "car_ferrari296gt3",
@@ -73,6 +104,10 @@
     "car_ferrari488gte",
     "car_ferrari499p",
     "car_ferrarievogt3"
+  ],
+  "brand_fia": [
+    "car_crosscartn11",
+    "car_formulair04"
   ],
   "brand_ford": [
     "car_fordgt",
@@ -129,6 +164,11 @@
     "car_lotus49",
     "car_lotus79"
   ],
+  "brand_lucas_oil": [
+    "car_pro2lite",
+    "car_pro2truck",
+    "car_pro4truck"
+  ],
   "brand_mazda": [
     "car_formulamazda",
     "car_mx5",
@@ -155,7 +195,8 @@
   "brand_pontiac": [
     "car_pontiacgrandprix87",
     "car_solstice",
-    "car_pcsolstice"
+    "car_pcsolstice",
+    "car_rookie"
   ],
   "brand_porsche": [
     "car_porsche718gt4",
@@ -182,12 +223,25 @@
     "car_formularenault20",
     "car_formularenault35"
   ],
+  "brand_riley": [
+    "car_rileydp"
+  ],
   "brand_ruf": [
     "car_rufrt12r",
     "car_awd",
     "car_rwd",
     "car_cspec",
-    "car_pcrufrt12r"
+    "car_pcrufrt12r",
+    "car_track"
+  ],
+  "brand_scca": [
+    "car_specracer"
+  ],
+  "brand_skip_barber": [
+    "car_rt2000"
+  ],
+  "brand_srx": [
+    "car_srx"
   ],
   "brand_subaru": [
     "car_subaruwrxsti"
@@ -197,6 +251,12 @@
     "car_superformulasf23",
     "car_honda",
     "car_toyota"
+  ],
+  "brand_tatuus": [
+    "car_indypropm18"
+  ],
+  "brand_team_fj": [
+    "car_euronascar"
   ],
   "brand_toyota": [
     "car_toyotacamry",
@@ -209,6 +269,9 @@
     "car_tundra2015",
     "car_corolla"
   ],
+  "brand_usf": [
+    "car_usf2000usf17"
+  ],
   "brand_volkswagen": [
     "car_jettatdi",
     "car_vwbeetlegrc",
@@ -217,53 +280,27 @@
   "brand_williams": [
     "car_williamsfw31"
   ],
-  "brand_unsorted": [
-    "car_crosscartn11",
-    "car_dirtlatemodel",
-    "car_350",
-    "car_358",
-    "car_438",
-    "car_dirtmicrosprint",
-    "car_nonwinged",
-    "car_outlaw",
-    "car_winged",
-    "car_dirtmidget",
-    "car_dirtministock",
-    "car_dirtmodified",
-    "car_bigblock",
-    "car_dirtsprint",
-    "car_305",
-    "car_360",
-    "car_410",
-    "car_dirtstreetstock",
-    "car_dirtumpmod",
-    "car_euronascar",
-    "car_formulair04",
-    "car_indypropm18",
-    "car_latemodel",
-    "car_latemodel2023",
+  "iracing_logo": [
     "car_ministock",
-    "car_pro2lite",
-    "car_pro2truck",
-    "car_pro4truck",
-    "car_rileydp",
-    "car_rookie",
-    "car_rt2000",
-    "car_silvercrown",
-    "car_skmodified",
-    "car_specracer",
     "car_sprint",
-    "car_srx",
-    "car_ss",
     "car_streetstock",
     "car_streetstock2",
-    "car_streetstock3",
-    "car_superlatemodel",
+    "car_streetstock3"
+  ],
+
+
+  "brand_unsorted": [
+    "car_skmodified",
+    "car_ss",
     "car_tour",
-    "car_track",
-    "car_ram2026",
-    "car_usf2000usf17",
     "car_pcsedan",
-    "car_pctruck"
+    "car_pctruck",
+    "car_legends",
+    "car_stockcarbrasil",
+    "car_stockcars",
+    "car_stockcars2",
+    "car_supercars",
+    "car_trucks",
+    "car_v8supercars"
   ]
 }
