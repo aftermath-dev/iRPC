@@ -41,7 +41,7 @@ public class DiscordService : IDisposable
         string details = Truncate(ApplyTemplate(cfg.DetailsTemplate, data), 128);
         string state   = Truncate(ApplyTemplate(cfg.StateTemplate, data), 128);
         var assets = BuildAssets(data, settings);
-        DateTime? timestamp = settings.ShowElapsedTimer ? data.SessionStartUtc : null;
+        DateTime? timestamp = data.SessionStartUtc;
 
         bool unchanged = _presenceActive
             && details == _lastDetails

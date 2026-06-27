@@ -77,23 +77,29 @@
   ],
   "brand_dirtcar_racing": [
     "car_dirtmicrosprint",
+    "car_dirtmicrosprint_winged",
+    "car_dirtmicrosprint_nonwinged",
+    "car_dirtmicrosprint_winged_outlaw",
+    "car_dirtmicrosprint_nonwinged_outlaw",
     "car_dirtsprint",
-    "car_nonwinged",
-    "car_outlaw",
-    "car_winged",
+    "car_dirtsprint_winged",
+    "car_dirtsprint_nonwinged",
+    "car_dirtsprint_winged_305",
+    "car_dirtsprint_winged_360",
+    "car_dirtsprint_winged_410",
+    "car_dirtsprint_nonwinged_360",
+    "car_dirtsprint_nonwinged_410",
     "car_dirtlatemodel",
+    "car_dirtlatemodel_350",
+    "car_dirtlatemodel_358",
+    "car_dirtlatemodel_438",
     "car_dirtmidget",
     "car_dirtministock",
     "car_dirtmodified",
+    "car_dirtmodified_358",
+    "car_dirtmodified_bigblock",
     "car_dirtstreetstock",
-    "car_dirtumpmod",
-    "car_350",
-    "car_358",
-    "car_438",
-    "car_bigblock",
-    "car_305",
-    "car_360",
-    "car_410"
+    "car_dirtumpmod"
   ],
   "brand_dodge": [
     "car_ram2026"
@@ -282,7 +288,7 @@
   "brand_williams": [
     "car_williamsfw31"
   ],
-  "iracing_logo": [
+  "brand_iracing": [
     "car_ministock",
     "car_sprint",
     "car_streetstock",

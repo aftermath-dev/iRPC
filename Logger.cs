@@ -10,18 +10,37 @@ public static class Logger
         "iRPC", "crashed.marker");
     private static readonly object _lock = new();
 
-    public static bool Enabled { get; set; } = false;
+    private static StreamWriter? _writer;
 
-    public static void Log(string message)
+    public static bool Enabled
     {
-        if (!Enabled) return;
-        try
+        get => _writer != null;
+        set
         {
             lock (_lock)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
-                File.AppendAllText(LogPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
+                if (value == (_writer != null)) return;
+                if (value)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+                    _writer = new StreamWriter(LogPath, append: true, System.Text.Encoding.UTF8) { AutoFlush = true };
+                }
+                else
+                {
+                    _writer?.Dispose();
+                    _writer = null;
+                }
             }
+        }
+    }
+
+    public static void Log(string message)
+    {
+        if (_writer is null) return;
+        try
+        {
+            lock (_lock)
+                _writer.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}");
         }
         catch { }
     }

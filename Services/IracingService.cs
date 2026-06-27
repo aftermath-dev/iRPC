@@ -83,14 +83,12 @@ public class IracingService : IDisposable
         {
             _lastYaml = yaml;
             RefreshStaticData(yaml, sessionNum);
-
-            string? carName = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort");
+            string? carName     = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort");
             string? carCodeName = IracingYaml.GetDriverValue(yaml, carIdx, "CarPath");
             _carCodeName = carCodeName ?? string.Empty;
-
-            Logger.Log($"Session info refreshed (SessionNum={sessionNum}, CarIdx={carIdx})");
+            if (Logger.Enabled) Logger.Log($"Session info refreshed (SessionNum={sessionNum}, CarIdx={carIdx})");
             TrackCollector.Record(_trackName, _trackConfig, _trackCodeName);
-            if (carName != null) CarCollector.Record(carName, carCodeName ?? string.Empty);
+            if (carName != null) CarCollector.Record(carName, _carCodeName);
         }
 
         if (sessionNum != _lastSessionNum)
@@ -107,14 +105,14 @@ public class IracingService : IDisposable
 
         if (_lastYaml is not null)
         {
-            data.SessionType = FormatSessionType(IracingYaml.GetSessionValue(_lastYaml, sessionNum, "SessionType"));
-            data.CarName = IracingYaml.GetDriverValue(_lastYaml, carIdx, "CarScreenNameShort") ?? string.Empty;
-            data.CarCodeName = _carCodeName;
-            data.PlayerIRating = IracingYaml.GetDriverValue(_lastYaml, carIdx, "IRating") is { } iratingStr
-                && int.TryParse(iratingStr, out int irating) ? irating : 0;
+            data.SessionType   = FormatSessionType(IracingYaml.GetSessionValue(_lastYaml, sessionNum, "SessionType"));
+            data.CarName       = IracingYaml.GetDriverValue(_lastYaml, carIdx, "CarScreenNameShort") ?? string.Empty;
+            data.CarCodeName   = _carCodeName;
+            data.PlayerIRating = IracingYaml.GetDriverValue(_lastYaml, carIdx, "IRating") is { } irStr
+                && int.TryParse(irStr, out int ir) ? ir : 0;
         }
 
-        Logger.Log(FormatPollBlock(data, sessionFlags));
+        if (Logger.Enabled) Logger.Log(FormatPollBlock(data, sessionFlags));
 
         return data;
     }

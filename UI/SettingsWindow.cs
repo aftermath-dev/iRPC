@@ -50,7 +50,6 @@ public class SettingsWindow : Form
     private static readonly System.Net.Http.HttpClient _http = new();
     private string? _prevLargeUrl;
     private string? _prevSmallUrl;
-    private readonly CheckBox        _cbElapsedTimer;
     private readonly DarkDropDown    _cmbLargeIcon;
     private readonly ITemplateEditor _brLargeText;
     private readonly DarkDropDown    _cmbSmallIcon;
@@ -198,8 +197,6 @@ public class SettingsWindow : Form
         preview.Controls.Add(_previewState);
         scroll.Controls.Add(preview);
         y += 90;
-
-        _cbElapsedTimer = Cb(scroll, "Show elapsed session timer", current.ShowElapsedTimer, x, ref y);
 
         // ── Icons section ────────────────────────────────────────
         Divider(scroll, x, ref y);
@@ -541,7 +538,6 @@ public class SettingsWindow : Form
             SmallIcon                = (SmallIconMode)_cmbSmallIcon.SelectedIndex,
             LargeTextTemplate        = _brLargeText.GetTemplate(),
             SmallTextTemplate        = _brSmallText.GetTemplate(),
-            ShowElapsedTimer         = _cbElapsedTimer.Checked,
             LaunchOnStartup          = _cbLaunchOnStartup.Checked,
             CheckForUpdatesOnStartup = _cbCheckForUpdatesOnStartup.Checked,
             ShowGitHubButton             = _cbShowGitHubButton.Checked,
@@ -630,7 +626,13 @@ public class SettingsWindow : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _savedResetTimer.Dispose(); _resetTip.Dispose(); }
+        if (disposing)
+        {
+            _savedResetTimer.Dispose();
+            _resetTip.Dispose();
+            _prevLargeIcon.Image?.Dispose();
+            _prevSmallIcon.Image?.Dispose();
+        }
         base.Dispose(disposing);
     }
 
