@@ -222,6 +222,7 @@ public class TrayApp : ApplicationContext
     {
         _timer.Stop();
         StatsTracker.Flush();
+        Logger.Enabled = false;
         _discord.Dispose();
         _iracing.Dispose();
         _trayIcon.Visible = false;
@@ -308,6 +309,7 @@ public class TrayApp : ApplicationContext
             _discord.Dispose();
             _iracing.Dispose();
             foreach (var icon in _icons.Values) icon.Dispose();
+            Logger.Enabled = false;
         }
         base.Dispose(disposing);
     }

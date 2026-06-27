@@ -626,7 +626,13 @@ public class SettingsWindow : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _savedResetTimer.Dispose(); _resetTip.Dispose(); }
+        if (disposing)
+        {
+            _savedResetTimer.Dispose();
+            _resetTip.Dispose();
+            _prevLargeIcon.Image?.Dispose();
+            _prevSmallIcon.Image?.Dispose();
+        }
         base.Dispose(disposing);
     }
 

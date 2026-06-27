@@ -1,68 +1,138 @@
-using System.Text.RegularExpressions;
-
 namespace iRPC;
 
 // Minimal parser for iRacing's YAML-like session info format.
+// Uses IndexOf-based scanning to avoid allocating substrings or split arrays on every call.
+// iRacing's YAML uses indented keys (e.g. " TrackName:" under WeekendInfo, "   SessionType:"
+// inside list blocks) — FindValue handles any indent by checking that only spaces precede
+// the key on its line, rather than requiring an exact "\nKey:" match.
 public static class IracingYaml
 {
-    // Returns first occurrence of "key: value" anywhere in the yaml string.
     public static string? GetValue(string yaml, string key)
-    {
-        var m = Regex.Match(yaml, $@"^\s*{Regex.Escape(key)}:\s*(.*?)\s*$", RegexOptions.Multiline);
-        if (!m.Success) return null;
-        string val = m.Groups[1].Value.Trim();
-        return val.Length == 0 ? null : val;
-    }
+        => FindValue(yaml, 0, yaml.Length, key);
 
     // Returns the value of 'key' from the Sessions block whose SessionNum matches.
     public static string? GetSessionValue(string yaml, int sessionNum, string key)
     {
-        // Split on session-list items: lines starting with "- SessionNum:"
-        string[] blocks = Regex.Split(yaml, @"(?=^\s*-\s+SessionNum:\s*\d)", RegexOptions.Multiline);
-        foreach (string block in blocks)
+        string sessionNumStr = sessionNum.ToString();
+        string marker = "- SessionNum:";
+        int searchFrom = 0;
+
+        while (true)
         {
-            var numMatch = Regex.Match(block, @"-\s+SessionNum:\s*(\d+)");
-            if (numMatch.Success && int.Parse(numMatch.Groups[1].Value) == sessionNum)
-                return GetValue(block, key);
+            int blockStart = yaml.IndexOf(marker, searchFrom, StringComparison.Ordinal);
+            if (blockStart < 0) return null;
+
+            // Read the SessionNum value from this block
+            int numStart = blockStart + marker.Length;
+            while (numStart < yaml.Length && yaml[numStart] == ' ') numStart++;
+            int numEnd = yaml.IndexOf('\n', numStart);
+            if (numEnd < 0) numEnd = yaml.Length;
+            string numVal = yaml.Substring(numStart, numEnd - numStart).TrimEnd();
+
+            // Find end of this block (next "- SessionNum:" or end of Sessions section)
+            int nextBlock = yaml.IndexOf(marker, numEnd, StringComparison.Ordinal);
+            int blockEnd = nextBlock > 0 ? nextBlock : yaml.Length;
+
+            if (numVal == sessionNumStr)
+                return FindValue(yaml, blockStart, blockEnd, key);
+
+            searchFrom = numEnd;
         }
-        return null;
     }
 
     // Returns value of 'key' from the Drivers list entry whose CarIdx matches.
     public static string? GetDriverValue(string yaml, int carIdx, string key)
     {
-        foreach (string block in GetDriverBlocks(yaml))
+        string carIdxStr = carIdx.ToString();
+        string marker = "- CarIdx:";
+        int searchFrom = yaml.IndexOf("Drivers:", StringComparison.Ordinal);
+        if (searchFrom < 0) return null;
+
+        while (true)
         {
-            var idxMatch = Regex.Match(block, @"-\s+CarIdx:\s*(\d+)");
-            if (idxMatch.Success && int.Parse(idxMatch.Groups[1].Value) == carIdx)
-                return GetValue(block, key);
+            int blockStart = yaml.IndexOf(marker, searchFrom, StringComparison.Ordinal);
+            if (blockStart < 0) return null;
+
+            int numStart = blockStart + marker.Length;
+            while (numStart < yaml.Length && yaml[numStart] == ' ') numStart++;
+            int numEnd = yaml.IndexOf('\n', numStart);
+            if (numEnd < 0) numEnd = yaml.Length;
+            string numVal = yaml.Substring(numStart, numEnd - numStart).TrimEnd();
+
+            int nextBlock = yaml.IndexOf(marker, numEnd, StringComparison.Ordinal);
+            int blockEnd = nextBlock > 0 ? nextBlock : yaml.Length;
+
+            if (numVal == carIdxStr)
+                return FindValue(yaml, blockStart, blockEnd, key);
+
+            searchFrom = numEnd;
         }
-        return null;
     }
 
-    // Returns the IRating of every real, currently-entered competitor (excludes the pace car
-    // and spectator slots, which carry meaningless/zero IRating values that would skew SoF).
+    // Returns the IRating of every real competitor (excludes pace car and spectators).
     public static List<int> GetCompetitorIRatings(string yaml)
     {
         var result = new List<int>();
-        foreach (string block in GetDriverBlocks(yaml))
+        string marker = "- CarIdx:";
+        int searchFrom = yaml.IndexOf("Drivers:", StringComparison.Ordinal);
+        if (searchFrom < 0) return result;
+
+        while (true)
         {
-            if (GetValue(block, "CarIsPaceCar") == "1") continue;
-            if (GetValue(block, "IsSpectator") == "1") continue;
-            if (GetValue(block, "IRating") is { } iratingStr && int.TryParse(iratingStr, out int irating) && irating > 0)
+            int blockStart = yaml.IndexOf(marker, searchFrom, StringComparison.Ordinal);
+            if (blockStart < 0) break;
+
+            int nextBlock = yaml.IndexOf(marker, blockStart + marker.Length, StringComparison.Ordinal);
+            int blockEnd = nextBlock > 0 ? nextBlock : yaml.Length;
+
+            if (FindValue(yaml, blockStart, blockEnd, "CarIsPaceCar") == "1"
+             || FindValue(yaml, blockStart, blockEnd, "IsSpectator") == "1")
+            {
+                searchFrom = blockStart + marker.Length;
+                continue;
+            }
+
+            string? iratingStr = FindValue(yaml, blockStart, blockEnd, "IRating");
+            if (iratingStr != null && int.TryParse(iratingStr, out int irating) && irating > 0)
                 result.Add(irating);
+
+            searchFrom = blockStart + marker.Length;
         }
+
         return result;
     }
 
-    private static IEnumerable<string> GetDriverBlocks(string yaml)
+    // Finds 'key:' within yaml[start..end) where the key appears at the start of a line
+    // (preceded only by spaces — handles any indentation level).
+    // Skips occurrences where the key is a substring of a longer identifier.
+    private static string? FindValue(string yaml, int start, int end, string key)
     {
-        // Find the Drivers: list — handles both LF and CRLF
-        var driversMatch = Regex.Match(yaml, @"^\s*Drivers:\s*$", RegexOptions.Multiline);
-        if (!driversMatch.Success) return [];
-        string driversList = yaml[driversMatch.Index..];
+        string needle = key + ":";
+        int from = start;
 
-        // Split on driver entries: "- CarIdx:"
-        return Regex.Split(driversList, @"(?=\s*-\s+CarIdx:)");
+        while (from < end)
+        {
+            int idx = yaml.IndexOf(needle, from, end - from, StringComparison.Ordinal);
+            if (idx < 0) return null;
+
+            // Walk backward past spaces; must reach a newline (or start of string/range).
+            int p = idx - 1;
+            while (p >= 0 && yaml[p] == ' ') p--;
+            bool atLineStart = p < 0 || yaml[p] == '\n';
+
+            if (atLineStart)
+            {
+                int vs = idx + needle.Length;
+                while (vs < end && yaml[vs] == ' ') vs++;
+                int ve = yaml.IndexOf('\n', vs, Math.Max(0, end - vs));
+                if (ve < 0 || ve > end) ve = end;
+                string val = yaml.Substring(vs, ve - vs).TrimEnd();
+                return val.Length == 0 ? null : val;
+            }
+
+            from = idx + needle.Length;
+        }
+
+        return null;
     }
 }

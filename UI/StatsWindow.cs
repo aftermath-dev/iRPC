@@ -34,6 +34,7 @@ public class StatsWindow : Form
     // watching the file we just re-snapshot from StatsTracker on a timer while the window is open.
     private readonly System.Windows.Forms.Timer _refreshTimer;
     private readonly Panel _content;
+    private ulong _lastRenderedTotalSeconds = ulong.MaxValue;
 
     public StatsWindow(StatsData stats)
     {
@@ -48,6 +49,7 @@ public class StatsWindow : Form
         _content = new Panel { Left = 0, Top = 0, Width = 420, Height = 640, AutoScroll = true, BackColor = BgForm };
         Controls.Add(_content);
         Render(stats);
+        _lastRenderedTotalSeconds = stats.TotalSeconds;
 
         var btnClose = new Button
         {
@@ -60,7 +62,13 @@ public class StatsWindow : Form
         Controls.Add(btnClose);
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-        _refreshTimer.Tick += (_, _) => Render(StatsTracker.Snapshot());
+        _refreshTimer.Tick += (_, _) =>
+        {
+            var snap = StatsTracker.Snapshot();
+            if (snap.TotalSeconds == _lastRenderedTotalSeconds) return;
+            _lastRenderedTotalSeconds = snap.TotalSeconds;
+            Render(snap);
+        };
         _refreshTimer.Start();
         FormClosed += (_, _) => _refreshTimer.Dispose();
     }
@@ -74,7 +82,9 @@ public class StatsWindow : Form
         if (redrawSuppressed) SendMessage(_content.Handle, WM_SETREDRAW, false, 0);
 
         _content.SuspendLayout();
+        var old = _content.Controls.Cast<Control>().ToArray();
         _content.Controls.Clear();
+        foreach (var c in old) c.Dispose();
 
         int x = 20, y = 16;
 
