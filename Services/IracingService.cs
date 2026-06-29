@@ -10,9 +10,19 @@ public class IracingService : IDisposable
     private string _trackConfig = string.Empty;
     private string _trackCodeName = string.Empty;
     private string _carCodeName = string.Empty;
+    private string _carName = string.Empty;
+    private string _carNumber = string.Empty;
+    private string _carClass = string.Empty;
+    private string _licenseString = string.Empty;
+    private string _seriesName = string.Empty;
+    private string _sessionType = string.Empty;
+    private int _playerIRating;
     private int _strengthOfField;
     private int _lastSessionNum = -1;
     private DateTime? _sessionStartUtc;
+    private DateTime? _stintStartUtc;
+    private bool _lastOnPitRoad;
+    private bool _lastIsOnTrack;
 
     // iRacing exiting/crashing mid-read can throw out of irsdkSharp (e.g. a stale shared-memory
     // handle) rather than just having IsConnected() go false. Without this, an exception here
@@ -28,8 +38,13 @@ public class IracingService : IDisposable
         {
             Logger.Log($"Poll failed, resetting connection state: {ex}");
             _lastYaml = null;
+            _carName = _carNumber = _carClass = _licenseString = _seriesName = _sessionType = string.Empty;
+            _playerIRating = 0;
             _lastSessionNum = -1;
             _sessionStartUtc = null;
+            _stintStartUtc = null;
+            _lastOnPitRoad = false;
+            _lastIsOnTrack = false;
             return new SessionData();
         }
     }
@@ -40,10 +55,11 @@ public class IracingService : IDisposable
 
         if (!_sdk.IsConnected())
         {
-            // Reset session tracking so a reconnect always stamps a fresh start time,
-            // even if the new session has the same SessionNum as the previous one.
             _lastSessionNum = -1;
             _sessionStartUtc = null;
+            _stintStartUtc = null;
+            _lastOnPitRoad = false;
+            _lastIsOnTrack = false;
             return data;
         }
 
@@ -75,26 +91,78 @@ public class IracingService : IDisposable
         data.FastRepairsUsed = GetInt("FastRepairUsed");
         data.FastRepairsAvailable = GetInt("FastRepairAvailable");
         data.IncidentCount = GetInt("PlayerCarMyIncidentCount");
+        data.CurrentLapTime = (float)GetFloat("LapCurrentLapTime");
+        data.Gear = GetInt("Gear");
+        data.RPM = (float)GetFloat("RPM");
+        data.FuelUsePerHour = (float)GetFloat("FuelUsePerHour");
+        data.SessionTime = GetFloat("SessionTime");
+        data.WindSpeedMS = (float)GetFloat("WindVel");
+        data.WindDirRad = (float)GetFloat("WindDir");
+        data.Humidity = (float)GetFloat("Humidity");
+        data.WeatherDeclaredWet = GetBool("WeatherDeclaredWet");
 
         int carIdx = GetInt("PlayerCarIdx");
+        data.TireCompound = GetStringAtIndex("CarIdxTireCompound", carIdx);
+        data.LapDelta = (float)GetFloat("LapDeltaToBestLap");
+
+        // Stint timer: reset when entering pits or going off track; start when joining track or exiting pits
+        bool enteringTrack = data.IsOnTrack && !_lastIsOnTrack;
+        bool exitingPits   = _lastOnPitRoad && !data.OnPitRoad && data.IsOnTrack;
+        bool enteringPits  = !_lastOnPitRoad && data.OnPitRoad;
+        if (!data.IsOnTrack || enteringPits)
+            _stintStartUtc = null;
+        else if (enteringTrack || exitingPits)
+            _stintStartUtc = DateTime.UtcNow;
+        data.StintStartUtc = _stintStartUtc;
+        _lastOnPitRoad = data.OnPitRoad;
+        _lastIsOnTrack = data.IsOnTrack;
+
+        // Gap to leader and car directly ahead by race position
+        if (data.Position > 1)
+        {
+            int[] carPositions = GetIntArray("CarIdxPosition");
+            float[] carF2Times = GetFloatArray("CarIdxF2Time");
+            int targetPos = data.Position - 1;
+            float playerF2 = carIdx < carF2Times.Length ? carF2Times[carIdx] : -1f;
+            data.GapToLeader = playerF2;
+            if (playerF2 >= 0)
+            {
+                for (int i = 0; i < carPositions.Length; i++)
+                {
+                    if (carPositions[i] == targetPos && i < carF2Times.Length && carF2Times[i] >= 0)
+                    {
+                        data.GapAhead = playerF2 - carF2Times[i];
+                        break;
+                    }
+                }
+            }
+        }
 
         string? yaml = _sdk.GetSessionInfo();
         if (!string.IsNullOrEmpty(yaml) && yaml != _lastYaml)
         {
             _lastYaml = yaml;
             RefreshStaticData(yaml, sessionNum);
-            string? carName     = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort");
-            string? carCodeName = IracingYaml.GetDriverValue(yaml, carIdx, "CarPath");
-            _carCodeName = carCodeName ?? string.Empty;
+            _carName       = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort") ?? string.Empty;
+            _carCodeName   = IracingYaml.GetDriverValue(yaml, carIdx, "CarPath") ?? string.Empty;
+            _playerIRating = IracingYaml.GetDriverValue(yaml, carIdx, "IRating") is { } irStr
+                && int.TryParse(irStr, out int ir) ? ir : 0;
+            _carNumber     = IracingYaml.GetDriverValue(yaml, carIdx, "CarNumber")?.Trim().Trim('"') ?? string.Empty;
+            _carClass      = IracingYaml.GetDriverValue(yaml, carIdx, "CarClassShortName") ?? string.Empty;
+            _licenseString = IracingYaml.GetDriverValue(yaml, carIdx, "LicString") ?? string.Empty;
+            _seriesName    = IracingYaml.GetValue(yaml, "SeriesName") ?? string.Empty;
+            _sessionType   = FormatSessionType(IracingYaml.GetSessionValue(yaml, sessionNum, "SessionType"));
             if (Logger.Enabled) Logger.Log($"Session info refreshed (SessionNum={sessionNum}, CarIdx={carIdx})");
             TrackCollector.Record(_trackName, _trackConfig, _trackCodeName);
-            if (carName != null) CarCollector.Record(carName, _carCodeName);
+            if (_carName.Length > 0) CarCollector.Record(_carName, _carCodeName);
         }
 
         if (sessionNum != _lastSessionNum)
         {
             _sessionStartUtc = DateTime.UtcNow;
             _lastSessionNum = sessionNum;
+            if (_lastYaml is not null)
+                _sessionType = FormatSessionType(IracingYaml.GetSessionValue(_lastYaml, sessionNum, "SessionType"));
         }
 
         data.TrackName = _trackName;
@@ -103,14 +171,14 @@ public class IracingService : IDisposable
         data.SessionStartUtc = _sessionStartUtc;
         data.StrengthOfField = _strengthOfField;
 
-        if (_lastYaml is not null)
-        {
-            data.SessionType   = FormatSessionType(IracingYaml.GetSessionValue(_lastYaml, sessionNum, "SessionType"));
-            data.CarName       = IracingYaml.GetDriverValue(_lastYaml, carIdx, "CarScreenNameShort") ?? string.Empty;
-            data.CarCodeName   = _carCodeName;
-            data.PlayerIRating = IracingYaml.GetDriverValue(_lastYaml, carIdx, "IRating") is { } irStr
-                && int.TryParse(irStr, out int ir) ? ir : 0;
-        }
+        data.SessionType   = _sessionType;
+        data.CarName       = _carName;
+        data.CarCodeName   = _carCodeName;
+        data.PlayerIRating = _playerIRating;
+        data.CarNumber     = _carNumber;
+        data.CarClass      = _carClass;
+        data.LicenseString = _licenseString;
+        data.SeriesName    = _seriesName;
 
         if (Logger.Enabled) Logger.Log(FormatPollBlock(data, sessionFlags));
 
@@ -224,6 +292,32 @@ public class IracingService : IDisposable
             };
         }
         catch { return 0; }
+    }
+
+    private int[] GetIntArray(string name)
+    {
+        try { return _sdk.GetData(name) is int[] arr ? arr : []; }
+        catch { return []; }
+    }
+
+    private float[] GetFloatArray(string name)
+    {
+        try { return _sdk.GetData(name) is float[] arr ? arr : []; }
+        catch { return []; }
+    }
+
+    private string GetStringAtIndex(string name, int index)
+    {
+        try
+        {
+            return _sdk.GetData(name) switch
+            {
+                string[] arr => index >= 0 && index < arr.Length ? arr[index] : string.Empty,
+                string s     => s,
+                _            => string.Empty
+            };
+        }
+        catch { return string.Empty; }
     }
 
     private double GetFloat(string name)

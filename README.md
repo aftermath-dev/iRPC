@@ -17,6 +17,7 @@ A lightweight Windows system tray app that shows your live iRacing session as Di
 - **Track and car brand logos** pulled directly from GitHub - no Discord asset limit
 - **Elapsed session timer** shown as a Discord timestamp
 - **Stats window** - tracks your total time on track broken down by session type, car, and track
+- **Presence presets** - save and switch between layouts instantly from the tray menu. Eight built-in presets included
 - **Pause Presence** - hide your presence from the tray menu without closing the app
 - **Launches on Windows startup** (optional)
 - **Self-updating** - checks GitHub Releases, downloads, verifies, and installs with one click
@@ -50,6 +51,7 @@ Right-click the tray icon for:
 |-------------------|------------------------------------------------------|
 | Settings          | Opens the Settings window                            |
 | Stats             | Opens the time-on-track Stats window                 |
+| Presets           | Switch presence layout instantly from saved presets  |
 | Reconnect Discord | Forces a fresh connection to the Discord client      |
 | Pause Presence    | Temporarily hides your presence without closing iRPC |
 | Check for Updates | Manually checks GitHub for a newer release           |
@@ -100,6 +102,12 @@ Available chips:
 | Pit Opt Repair       | Optional/cosmetic repair time remaining            |
 | Fast Repairs         | Fast repairs used/available this race              |
 | Incidents            | Incident points this session                       |
+| Tire                 | Tire compound fitted (e.g. Soft, Primary)          |
+| Car #                | Your car number (e.g. #47)                         |
+| Class                | Your car class (e.g. GT3, GTP, LMP2)               |
+| License              | Your license and safety rating (e.g. A 2.00)       |
+| Series               | Series name from iRacing                           |
+| Delta                | Current lap vs best lap (e.g. Δ +0.234)            |
 | km/h / mph           | Speed                                              |
 | Fuel / Fuel %        | Fuel level / percentage                            |
 | Flag                 | Caution or Checkered (empty otherwise)             |

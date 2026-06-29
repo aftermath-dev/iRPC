@@ -40,5 +40,23 @@ public class SessionData
     public int FastRepairsUsed { get; set; }
     public int FastRepairsAvailable { get; set; }
     public int IncidentCount { get; set; }
+    public string TireCompound { get; set; } = string.Empty;
+    public string CarNumber { get; set; } = string.Empty;
+    public string CarClass { get; set; } = string.Empty;
+    public string LicenseString { get; set; } = string.Empty;
+    public string SeriesName { get; set; } = string.Empty;
+    public float LapDelta { get; set; }      // seconds vs best lap; positive = slower, negative = faster
+    public DateTime? StintStartUtc { get; set; }
+    public float GapAhead { get; set; } = -1f;     // seconds to car directly ahead; -1 = unknown/P1
+    public float GapToLeader { get; set; } = -1f;  // seconds behind race leader; -1 = P1 or unknown
+    public float CurrentLapTime { get; set; }       // in-progress lap time in seconds; 0 = none
+    public int Gear { get; set; }                   // -1=R, 0=N, 1+=forward
+    public float RPM { get; set; }
+    public float FuelUsePerHour { get; set; }       // liters/hour
+    public double SessionTime { get; set; }         // elapsed session time in seconds
+    public float WindSpeedMS { get; set; }          // m/s
+    public float WindDirRad { get; set; }           // radians, clockwise from north
+    public float Humidity { get; set; }             // 0-1
+    public bool WeatherDeclaredWet { get; set; }
     public bool IsInGarage => IsConnected && !IsOnTrack && !OnPitRoad;
 }

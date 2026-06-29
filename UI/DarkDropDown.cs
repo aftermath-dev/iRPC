@@ -12,7 +12,7 @@ sealed class DarkDropDown : Control
     private static readonly Color Muted  = Color.FromArgb(148, 155, 164);
     private static readonly Font  F      = new("Segoe UI", 9f);
 
-    private readonly string[] _items;
+    private string[] _items;
     private readonly ContextMenuStrip _menu;
     private int _sel;
 
@@ -22,7 +22,24 @@ sealed class DarkDropDown : Control
         set { _sel = Math.Clamp(value, 0, _items.Length - 1); Invalidate(); }
     }
 
+    public string? SelectedItem => _sel >= 0 && _sel < _items.Length ? _items[_sel] : null;
+
     public event EventHandler? SelectedIndexChanged;
+
+    public void SetItems(string[] items, int selected = 0)
+    {
+        _items = items;
+        _menu.Items.Clear();
+        for (int i = 0; i < items.Length; i++)
+        {
+            int idx = i;
+            var mi = new ToolStripMenuItem(items[i]) { ForeColor = Fg };
+            mi.Click += (_, _) => { _sel = idx; Invalidate(); SelectedIndexChanged?.Invoke(this, EventArgs.Empty); };
+            _menu.Items.Add(mi);
+        }
+        _sel = items.Length > 0 ? Math.Clamp(selected, 0, items.Length - 1) : -1;
+        Invalidate();
+    }
 
     public DarkDropDown(string[] items, int selected = 0)
     {

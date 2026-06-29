@@ -124,6 +124,29 @@ public class DiscordService : IDisposable
         string sky = FormatSky(data.Skies);
         string fastRepairs = data.FastRepairsAvailable > 0 ? $"FR {data.FastRepairsUsed}/{data.FastRepairsAvailable}" : string.Empty;
 
+        string currentLapTime = data.CurrentLapTime > 0 && data.IsOnTrack
+            ? FormatLapTime(data.CurrentLapTime) : string.Empty;
+
+        string fuelLaps = string.Empty;
+        if (data.FuelUsePerHour > 0 && data.FuelLevel > 0)
+        {
+            float refLap = data.BestLapTime > 0 ? data.BestLapTime : data.LastLapTime;
+            if (refLap > 0)
+            {
+                float perLap = data.FuelUsePerHour * (refLap / 3600f);
+                if (perLap > 0) fuelLaps = $"~{data.FuelLevel / perLap:F1} laps";
+            }
+        }
+
+        string sessionElapsed = data.SessionTime > 0
+            ? TimeSpan.FromSeconds(data.SessionTime) is var se
+                ? se.Hours > 0 ? se.ToString(@"h\:mm\:ss") : se.ToString(@"m\:ss")
+                : string.Empty
+            : string.Empty;
+
+        string gear = data.Gear switch { -1 => "R", 0 => "N", var g => g.ToString() };
+        string wind = FormatWind(data.WindSpeedMS, data.WindDirRad);
+
         string result = template
             .Replace("{session}",      data.SessionType)
             .Replace("{track}",        data.TrackName)
@@ -133,14 +156,19 @@ public class DiscordService : IDisposable
             .Replace("{lap}",          data.CurrentLap > 0 ? $"Lap {data.CurrentLap}" : string.Empty)
             .Replace("{laps_total}",   lapTotal)
             .Replace("{laps_remain}",  data.LapsRemain is > 0 and < 32767 ? $"{data.LapsRemain} laps left" : string.Empty)
-            .Replace("{time_remain}",  timeRemain)
+            .Replace("{time_remain}",   timeRemain)
+            .Replace("{session_time}", sessionElapsed)
             .Replace("{speed_kmh}",    $"{data.Speed * 3.6f:F0} km/h")
             .Replace("{speed_mph}",    $"{data.Speed * 2.237f:F0} mph")
+            .Replace("{gear}",         gear)
+            .Replace("{rpm}",          data.RPM > 0 ? $"{data.RPM:F0} rpm" : string.Empty)
             .Replace("{fuel}",         data.FuelLevel >= 0 ? $"F {data.FuelLevel:F1}L" : string.Empty)
             .Replace("{fuel_gal}",     data.FuelLevel >= 0 ? $"F {data.FuelLevel * 0.26417f:F1}gal" : string.Empty)
             .Replace("{fuel_pct}",     data.FuelPercent >= 0 ? $"F {data.FuelPercent * 100:F0}%" : string.Empty)
+            .Replace("{fuel_laps}",    fuelLaps)
             .Replace("{last_lap}",     lastLap.Length > 0 ? $"LL {lastLap}" : string.Empty)
             .Replace("{best_lap}",     bestLap.Length > 0 ? $"BL {bestLap}" : string.Empty)
+            .Replace("{lap_time}",     currentLapTime.Length > 0 ? $"T {currentLapTime}" : string.Empty)
             .Replace("{sof}",          data.StrengthOfField > 0 ? $"SoF {data.StrengthOfField}" : string.Empty)
             .Replace("{irating}",          data.PlayerIRating > 0 ? $"iR {data.PlayerIRating}" : string.Empty)
             .Replace("{irating_avg5}",     data.IRatingAvg5 > 0 ? $"iR5 {data.IRatingAvg5}" : string.Empty)
@@ -152,11 +180,32 @@ public class DiscordService : IDisposable
             .Replace("{air_temp_f}",       $"Air {data.AirTempC * 9 / 5 + 32:F0}°F")
             .Replace("{track_temp_c}",     $"Track {data.TrackTempC:F0}°C")
             .Replace("{track_temp_f}",     $"Track {data.TrackTempC * 9 / 5 + 32:F0}°F")
+            .Replace("{wind}",             wind)
+            .Replace("{wind_mph}",         data.WindSpeedMS > 0.1f
+                                               ? $"{data.WindSpeedMS * 2.237f:F0} mph {WindCompass(data.WindDirRad)}"
+                                               : string.Empty)
+            .Replace("{humidity}",         data.Humidity > 0 ? $"{data.Humidity * 100:F0}%" : string.Empty)
+            .Replace("{wet}",              data.WeatherDeclaredWet ? "Wet" : string.Empty)
             .Replace("{pit_service}",      data.PitstopActive ? "Servicing" : string.Empty)
             .Replace("{pit_repair}",       data.PitRepairLeft > 0 ? $"Rep {data.PitRepairLeft:F0}s" : string.Empty)
             .Replace("{pit_opt_repair}",   data.PitOptRepairLeft > 0 ? $"Opt Rep {data.PitOptRepairLeft:F0}s" : string.Empty)
             .Replace("{fast_repairs}",     fastRepairs)
             .Replace("{incidents}",        data.IncidentCount > 0 ? $"{data.IncidentCount}x" : string.Empty)
+            .Replace("{tire}",         data.TireCompound)
+            .Replace("{car_number}",   data.CarNumber.Length > 0 ? $"#{data.CarNumber}" : string.Empty)
+            .Replace("{class}",        data.CarClass)
+            .Replace("{license}",      data.LicenseString)
+            .Replace("{series}",       data.SeriesName)
+            .Replace("{delta}",        data.BestLapTime > 0 && data.IsOnTrack
+                                           ? $"Δ {data.LapDelta:+0.000;-0.000}"
+                                           : string.Empty)
+            .Replace("{stint_time}",   data.StintStartUtc is { } st
+                                           ? TimeSpan.FromSeconds((DateTime.UtcNow - st).TotalSeconds) is var sts
+                                               ? $"Stint {(sts.Hours > 0 ? sts.ToString(@"h\:mm\:ss") : sts.ToString(@"m\:ss"))}"
+                                               : string.Empty
+                                           : string.Empty)
+            .Replace("{gap_ahead}",    data.GapAhead >= 0 ? $"+{data.GapAhead:F1}s" : string.Empty)
+            .Replace("{gap_leader}",   data.GapToLeader >= 0 ? $"+{data.GapToLeader:F1}s" : string.Empty)
             .Replace("{flag}",         data.IsCheckered ? "Checkered" : data.IsCaution ? "Caution" : string.Empty)
             .Replace("{pit}",          data.OnPitRoad ? "In Pits" : string.Empty)
             .Replace("{garage}",       data.IsInGarage ? "In Garage" : string.Empty);
@@ -167,6 +216,20 @@ public class DiscordService : IDisposable
     // iRacing reports -1 for LapLastLapTime/LapBestLapTime when no valid lap has been set yet.
     private static string FormatLapTime(float seconds) =>
         seconds > 0 ? TimeSpan.FromSeconds(seconds).ToString(@"m\:ss\.fff") : string.Empty;
+
+    private static string FormatWind(float speedMs, float dirRad)
+    {
+        if (speedMs < 0.1f) return string.Empty;
+        return $"{speedMs * 3.6f:F0} km/h {WindCompass(dirRad)}";
+    }
+
+    private static string WindCompass(float dirRad)
+    {
+        float deg = (float)(dirRad * 180 / Math.PI);
+        deg = ((deg % 360) + 360) % 360;
+        string[] pts = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+        return pts[(int)Math.Round(deg / 45) % 8];
+    }
 
     private static string FormatSky(int skies) => skies switch
     {

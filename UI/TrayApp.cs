@@ -18,6 +18,7 @@ public class TrayApp : ApplicationContext
     private bool _presencePaused;
     private SettingsWindow? _settingsWindow;
     private StatsWindow? _statsWindow;
+    private ToolStripMenuItem? _presetsMenu;
 
     private enum ConnState { Disconnected, IracingOnly, Full }
 
@@ -30,14 +31,18 @@ public class TrayApp : ApplicationContext
             if (_presencePaused) _discord.Clear();
         };
 
+        _presetsMenu = new ToolStripMenuItem("Presets");
+
         var menu = new ContextMenuStrip();
         menu.Items.Add("Settings", null, OnSettings);
         menu.Items.Add("Stats", null, OnStats);
+        menu.Items.Add(_presetsMenu);
         menu.Items.Add("Reconnect Discord", null, (_, _) => _discord.Reconnect());
         menu.Items.Add(pauseItem);
         menu.Items.Add("Check for Updates", null, OnCheckForUpdates);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, OnExit);
+        RebuildPresetsMenu();
 
         _trayIcon = new NotifyIcon
         {
@@ -74,6 +79,15 @@ public class TrayApp : ApplicationContext
         if (_settings.CheckForUpdatesOnStartup)
             _ = CheckForUpdatesAsync(silent: true);
 
+        if (!_settings.HasShownWelcome)
+        {
+            _settings.HasShownWelcome = true;
+            using var wizard = new WelcomeWizard(_settings);
+            wizard.ShowDialog();
+            ApplyStartup(_settings.LaunchOnStartup);
+            _settings.Save();
+        }
+
         var pending = UpdateChecker.ConsumePendingReleaseNotes();
         if (pending is not null)
             MessageBox.Show(
@@ -92,6 +106,7 @@ public class TrayApp : ApplicationContext
         data.IRatingAvgCustom = IRatingTracker.AverageOfLast(_settings.IRatingAvgCustomWindow);
         if (!_presencePaused)
             _discord.Update(data, _settings);
+        UpdateTrayTooltip(data);
         StatsTracker.Record(data);
         _pollBuffer.Enqueue((DateTime.Now, data));
         if (_pollBuffer.Count > 5) _pollBuffer.Dequeue();
@@ -104,6 +119,58 @@ public class TrayApp : ApplicationContext
             _connState = state;
             _trayIcon.Icon = GetIcon(state);
         }
+    }
+
+    private void UpdateTrayTooltip(SessionData data)
+    {
+        string tip;
+        if (!data.IsConnected)
+            tip = "iRPC - Not connected";
+        else
+        {
+            var cfg = _settings.GetTemplate(data.SessionType);
+            string details = DiscordService.ApplyTemplate(cfg.DetailsTemplate, data);
+            string state   = DiscordService.ApplyTemplate(cfg.StateTemplate, data);
+            tip = details.Length > 0 && state.Length > 0 ? $"{details} | {state}"
+                : details.Length > 0 ? details
+                : "iRPC";
+        }
+        _trayIcon.Text = tip.Length > 63 ? tip[..60] + "..." : tip;
+    }
+
+    private void RebuildPresetsMenu()
+    {
+        if (_presetsMenu is null) return;
+        _presetsMenu.DropDownItems.Clear();
+        if (_settings.Presets.Count == 0)
+        {
+            _presetsMenu.Enabled = false;
+            return;
+        }
+        _presetsMenu.Enabled = true;
+        foreach (var (name, preset) in _settings.Presets)
+        {
+            var item = new ToolStripMenuItem(name);
+            item.Click += (_, _) => ApplyPreset(name, preset);
+            _presetsMenu.DropDownItems.Add(item);
+        }
+    }
+
+    private void ApplyPreset(string name, PresencePreset preset)
+    {
+        if (_settingsWindow is { IsDisposed: false })
+        {
+            MessageBox.Show("Close the Settings window before switching presets.",
+                "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        foreach (var kv in preset.SessionTemplates)
+            _settings.SessionTemplates[kv.Key] = new SessionPresenceConfig
+                { DetailsTemplate = kv.Value.DetailsTemplate, StateTemplate = kv.Value.StateTemplate };
+        _settings.LargeTextTemplate = preset.LargeTextTemplate;
+        _settings.SmallTextTemplate = preset.SmallTextTemplate;
+        _settings.Save();
+        _trayIcon.ShowBalloonTip(2000, "iRPC", $"Preset \"{name}\" applied.", ToolTipIcon.None);
     }
 
     private void OnSettings(object? sender, EventArgs e)
@@ -121,6 +188,7 @@ public class TrayApp : ApplicationContext
             TrackCollector.Enabled = _settings.TrackAndCarLogging;
             CarCollector.Enabled = _settings.TrackAndCarLogging;
             ApplyStartup(_settings.LaunchOnStartup);
+            RebuildPresetsMenu();
         }, () => _pollBuffer.ToList());
         win.Icon = GetPlainIcon();
         win.FormClosed += (_, _) => { win.Dispose(); _settingsWindow = null; };
