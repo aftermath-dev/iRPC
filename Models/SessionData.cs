@@ -15,8 +15,10 @@ public class SessionData
     public int CurrentLap { get; set; }
     public int LapsRemain { get; set; }    // 32767 = unlimited
     public double TimeRemaining { get; set; }
-    public bool IsCaution { get; set; }
-    public bool IsCheckered { get; set; }
+    public FlagState Flag { get; set; }
+    public bool IsCaution => Flag == FlagState.Caution;
+    public bool IsCheckered => Flag == FlagState.Checkered;
+    public int IncidentLimit { get; set; }
     public DateTime? SessionStartUtc { get; set; }
     public float Speed { get; set; }        // m/s
     public float FuelLevel { get; set; }    // liters
@@ -58,5 +60,17 @@ public class SessionData
     public float WindDirRad { get; set; }           // radians, clockwise from north
     public float Humidity { get; set; }             // 0-1
     public bool WeatherDeclaredWet { get; set; }
+    public int TotalDrivers { get; set; }           // competitor count in session (excluding pace car/spectators)
+    public int LapsDown { get; set; }               // laps behind race leader; 0 = on lead lap
+    public float SimTimeOfDay { get; set; }         // in-sim time of day, seconds past midnight
+    public float PlayerSRating { get; set; }        // safety rating numeric value (e.g. 3.44); 0 = unranked
+    public float SRatingAvg5 { get; set; }
+    public float SRatingAvg10 { get; set; }
+    public float SRatingAvgCustom { get; set; }
+    public int SRatingAvgCustomWindow { get; set; }
+    public FlagStyle FlagDisplay { get; set; }
+    public string PlayerName { get; set; } = string.Empty;
     public bool IsInGarage => IsConnected && !IsOnTrack && !OnPitRoad;
 }
+
+public enum FlagState { None, Caution, Checkered, White, Red, Green, Black }

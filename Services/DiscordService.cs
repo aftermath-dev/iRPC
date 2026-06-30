@@ -20,7 +20,11 @@ public class DiscordService : IDisposable
     private string? _lastSmallImageKey;
     private string? _lastSmallImageText;
     private bool? _lastShowGitHubButton;
+    private string? _lastCustomButtonLabel;
+    private string? _lastCustomButtonUrl;
     private DateTime? _lastTimestamp;
+    private int? _lastPartySize;
+    private int? _lastPartyMax;
 
     // True only while the named-pipe handshake with the Discord client is actually live —
     // IsInitialized just means Initialize() was called and stays true even after Discord closes.
@@ -43,6 +47,12 @@ public class DiscordService : IDisposable
         var assets = BuildAssets(data, settings);
         DateTime? timestamp = data.SessionStartUtc;
 
+        Party? party = settings.ShowPartyField && data.Position > 0 && data.TotalDrivers > 1
+            ? new Party { ID = "irpc", Size = data.Position, Max = Math.Max(data.Position, data.TotalDrivers) }
+            : null;
+        int? partySize = party?.Size;
+        int? partyMax  = party?.Max;
+
         bool unchanged = _presenceActive
             && details == _lastDetails
             && state == _lastState
@@ -51,17 +61,26 @@ public class DiscordService : IDisposable
             && assets.SmallImageKey == _lastSmallImageKey
             && assets.SmallImageText == _lastSmallImageText
             && settings.ShowGitHubButton == _lastShowGitHubButton
-            && timestamp == _lastTimestamp;
+            && settings.CustomButtonLabel == _lastCustomButtonLabel
+            && settings.CustomButtonUrl == _lastCustomButtonUrl
+            && timestamp == _lastTimestamp
+            && partySize == _lastPartySize
+            && partyMax == _lastPartyMax;
         if (unchanged) return;
+
+        var buttons = new List<DiscordRPC.Button>();
+        if (settings.ShowGitHubButton)
+            buttons.Add(new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" });
+        if (!string.IsNullOrWhiteSpace(settings.CustomButtonLabel) && !string.IsNullOrWhiteSpace(settings.CustomButtonUrl))
+            buttons.Add(new DiscordRPC.Button { Label = settings.CustomButtonLabel.Length > 32 ? settings.CustomButtonLabel[..32] : settings.CustomButtonLabel, Url = settings.CustomButtonUrl });
 
         var presence = new RichPresence
         {
             Details = details,
             State   = state,
             Assets  = assets,
-            Buttons = settings.ShowGitHubButton
-                ? [new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" }]
-                : null,
+            Buttons = buttons.Count > 0 ? [.. buttons] : null,
+            Party   = party,
         };
 
         if (timestamp.HasValue)
@@ -78,7 +97,11 @@ public class DiscordService : IDisposable
         _lastSmallImageKey = assets.SmallImageKey;
         _lastSmallImageText = assets.SmallImageText;
         _lastShowGitHubButton = settings.ShowGitHubButton;
+        _lastCustomButtonLabel = settings.CustomButtonLabel;
+        _lastCustomButtonUrl = settings.CustomButtonUrl;
         _lastTimestamp = timestamp;
+        _lastPartySize = partySize;
+        _lastPartyMax = partyMax;
     }
 
     public void Clear()
@@ -102,7 +125,11 @@ public class DiscordService : IDisposable
         _lastSmallImageKey = null;
         _lastSmallImageText = null;
         _lastShowGitHubButton = null;
+        _lastCustomButtonLabel = null;
+        _lastCustomButtonUrl = null;
         _lastTimestamp = null;
+        _lastPartySize = null;
+        _lastPartyMax = null;
     }
 
     public static string ApplyTemplate(string template, SessionData data)
@@ -146,6 +173,13 @@ public class DiscordService : IDisposable
 
         string gear = data.Gear switch { -1 => "R", 0 => "N", var g => g.ToString() };
         string wind = FormatWind(data.WindSpeedMS, data.WindDirRad);
+        string drivers = data.TotalDrivers > 0 ? data.TotalDrivers.ToString() : string.Empty;
+        string lapsDown = data.LapsDown > 0 ? $"{data.LapsDown}L down" : string.Empty;
+        string timeOfDay = FormatTimeOfDay(data.SimTimeOfDay);
+        string sr = data.PlayerSRating > 0 ? $"SR {data.PlayerSRating:F2}" : string.Empty;
+        string srAvg5 = data.SRatingAvg5 > 0 ? $"SR5 {data.SRatingAvg5:F2}" : string.Empty;
+        string srAvg10 = data.SRatingAvg10 > 0 ? $"SR10 {data.SRatingAvg10:F2}" : string.Empty;
+        string srAvgCustom = data.SRatingAvgCustom > 0 ? $"SR{data.SRatingAvgCustomWindow} {data.SRatingAvgCustom:F2}" : string.Empty;
 
         string result = template
             .Replace("{session}",      data.SessionType)
@@ -206,9 +240,17 @@ public class DiscordService : IDisposable
                                            : string.Empty)
             .Replace("{gap_ahead}",    data.GapAhead >= 0 ? $"+{data.GapAhead:F1}s" : string.Empty)
             .Replace("{gap_leader}",   data.GapToLeader >= 0 ? $"+{data.GapToLeader:F1}s" : string.Empty)
-            .Replace("{flag}",         data.IsCheckered ? "Checkered" : data.IsCaution ? "Caution" : string.Empty)
-            .Replace("{pit}",          data.OnPitRoad ? "In Pits" : string.Empty)
-            .Replace("{garage}",       data.IsInGarage ? "In Garage" : string.Empty);
+            .Replace("{flag}",           FormatFlag(data.Flag, data.FlagDisplay))
+            .Replace("{pit}",            data.OnPitRoad ? "In Pits" : string.Empty)
+            .Replace("{garage}",         data.IsInGarage ? "In Garage" : string.Empty)
+            .Replace("{drivers}",        drivers)
+            .Replace("{laps_down}",      lapsDown)
+            .Replace("{time_of_day}",    timeOfDay)
+            .Replace("{sr}",             sr)
+            .Replace("{sr_avg5}",        srAvg5)
+            .Replace("{sr_avg10}",       srAvg10)
+            .Replace("{sr_avg_custom}",  srAvgCustom)
+            .Replace("{incident_limit}", data.IncidentLimit > 0 ? $"{data.IncidentLimit}x" : string.Empty);
 
         return CleanResult(result);
     }
@@ -216,6 +258,36 @@ public class DiscordService : IDisposable
     // iRacing reports -1 for LapLastLapTime/LapBestLapTime when no valid lap has been set yet.
     private static string FormatLapTime(float seconds) =>
         seconds > 0 ? TimeSpan.FromSeconds(seconds).ToString(@"m\:ss\.fff") : string.Empty;
+
+    private static string FormatTimeOfDay(float seconds)
+    {
+        if (seconds <= 0) return string.Empty;
+        int secs = (int)seconds % 86400;
+        int h = secs / 3600, m = (secs % 3600) / 60;
+        string ampm = h >= 12 ? "PM" : "AM";
+        int h12 = h % 12; if (h12 == 0) h12 = 12;
+        return $"{h12}:{m:D2} {ampm}";
+    }
+
+    private static string FormatFlag(FlagState flag, FlagStyle style) => style == FlagStyle.Emoji
+        ? flag switch {
+            FlagState.Checkered => "🏁",
+            FlagState.Black     => "⬛",
+            FlagState.Red       => "🔴",
+            FlagState.White     => "⬜",
+            FlagState.Caution   => "🟡",
+            FlagState.Green     => "🟢",
+            _                   => string.Empty,
+        }
+        : flag switch {
+            FlagState.Checkered => "Checkered",
+            FlagState.Black     => "Black",
+            FlagState.Red       => "Red",
+            FlagState.White     => "White",
+            FlagState.Caution   => "Caution",
+            FlagState.Green     => "Green",
+            _                   => string.Empty,
+        };
 
     private static string FormatWind(float speedMs, float dirRad)
     {
@@ -300,7 +372,7 @@ public class DiscordService : IDisposable
     // track_suzuka.png), not the official display name, which is often longer/different
     // (e.g. "Autodromo Enzo e Dino Ferrari" for Imola). Prefer the codename root; fall back to
     // the display name if no codename is available yet (e.g. before the first session-info read).
-    private static string? TrackUrl(string? codeName, string? displayName)
+    internal static string? TrackUrl(string? codeName, string? displayName)
     {
         string? root = string.IsNullOrWhiteSpace(codeName) ? null : codeName.Split(' ')[0];
         string? key = AssetKey(root) ?? AssetKey(displayName);

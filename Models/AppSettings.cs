@@ -5,6 +5,7 @@ namespace iRPC;
 
 public enum LargeIconMode { IracingLogo, IrpcLogo, TrackLogo }
 public enum SmallIconMode { Off, CarBrand, SessionType }
+public enum FlagStyle { Text, Emoji }
 
 public class SessionPresenceConfig
 {
@@ -33,7 +34,19 @@ public class AppSettings
     public bool DebugMode { get; set; } = false;
     public bool TrackAndCarLogging { get; set; } = false;
     public bool ClassicTemplateEditor { get; set; } = false;
+    public bool ShowPartyField { get; set; } = true;
     public int IRatingAvgCustomWindow { get; set; } = 20;
+    public int SRatingAvgCustomWindow { get; set; } = 20;
+    public string CustomButtonLabel { get; set; } = string.Empty;
+    public string CustomButtonUrl { get; set; } = string.Empty;
+    public bool WidgetEnabled { get; set; } = false;
+    public string DiscordWidgetBotToken { get; set; } = string.Empty;
+    public string DiscordClientSecret { get; set; } = string.Empty;
+    public string DiscordBotToken { get; set; } = string.Empty;
+    public string DiscordRefreshToken { get; set; } = string.Empty;
+    public long DiscordTokenExpiry { get; set; } = 0;
+    public string DiscordUserId { get; set; } = string.Empty;
+    public string DiscordLinkedUsername { get; set; } = string.Empty;
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public LargeIconMode LargeIcon { get; set; } = LargeIconMode.TrackLogo;
@@ -41,11 +54,15 @@ public class AppSettings
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public SmallIconMode SmallIcon { get; set; } = SmallIconMode.CarBrand;
 
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public FlagStyle FlagDisplay { get; set; } = FlagStyle.Text;
+
     public string LargeTextTemplate { get; set; } = "{track} - {config}";
     public string SmallTextTemplate { get; set; } = "{car}";
 
     public Dictionary<string, SessionPresenceConfig> SessionTemplates { get; set; } = new(DefaultTemplates);
     public Dictionary<string, PresencePreset> Presets { get; set; } = new();
+    public string? ActivePreset { get; set; }
 
     public SessionPresenceConfig GetTemplate(string sessionType)
     {

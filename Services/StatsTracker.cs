@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace iRPC;
@@ -10,6 +12,8 @@ public static class StatsTracker
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "iRPC", "stats.json");
+
+    private static readonly byte[] _sigKey = Encoding.UTF8.GetBytes("iRPC\x01\x9f\x4a\xb2\x77\xe3\x0c\xd5\x88\x3f\xa6\x51\x2e\x9b\xc4\x70");
 
     private static readonly object _lock = new();
     private static readonly StatsData _data = Load();
@@ -82,8 +86,25 @@ public static class StatsTracker
     {
         try
         {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<StatsData>(File.ReadAllText(FilePath)) ?? new();
+            if (!File.Exists(FilePath)) return new();
+            string raw = File.ReadAllText(FilePath);
+
+            // Legacy plain JSON (pre-signature) — accept once, will be re-saved signed.
+            if (raw.TrimStart().StartsWith('{') && !raw.Contains("\"d\""))
+                return JsonSerializer.Deserialize<StatsData>(raw) ?? new();
+
+            using var doc = JsonDocument.Parse(raw);
+            string dataB64 = doc.RootElement.GetProperty("d").GetString() ?? "";
+            string storedSig = doc.RootElement.GetProperty("s").GetString() ?? "";
+
+            byte[] dataBytes = Convert.FromBase64String(dataB64);
+            string expectedSig = Sign(dataBytes);
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Convert.FromHexString(storedSig),
+                    Convert.FromHexString(expectedSig)))
+                return new();
+
+            return JsonSerializer.Deserialize<StatsData>(dataBytes) ?? new();
         }
         catch { }
         return new();
@@ -92,10 +113,19 @@ public static class StatsTracker
     private static void Save(StatsData data)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        byte[] dataBytes = JsonSerializer.SerializeToUtf8Bytes(data);
+        string dataB64   = Convert.ToBase64String(dataBytes);
+        string sig       = Sign(dataBytes);
 
+        string json = JsonSerializer.Serialize(new { d = dataB64, s = sig });
         string tempPath = FilePath + ".tmp";
         File.WriteAllText(tempPath, json);
         File.Move(tempPath, FilePath, overwrite: true);
+    }
+
+    private static string Sign(byte[] data)
+    {
+        using var hmac = new HMACSHA256(_sigKey);
+        return Convert.ToHexString(hmac.ComputeHash(data)).ToLowerInvariant();
     }
 }

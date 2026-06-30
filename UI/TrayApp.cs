@@ -10,12 +10,15 @@ public class TrayApp : ApplicationContext
     private readonly System.Windows.Forms.Timer _timer;
     private readonly IracingService _iracing = new();
     private readonly DiscordService _discord = new();
+    private readonly WidgetService _widget = new();
     private AppSettings _settings = AppSettings.Load();
     private readonly Queue<(DateTime Time, SessionData Data)> _pollBuffer = new();
     private readonly Dictionary<ConnState, Icon> _icons = new();
     private Icon? _plainIcon;
     private ConnState _connState = ConnState.Disconnected;
     private bool _presencePaused;
+    private bool _wasIracingConnected;
+    private bool _firstTick = true;
     private SettingsWindow? _settingsWindow;
     private StatsWindow? _statsWindow;
     private ToolStripMenuItem? _presetsMenu;
@@ -104,10 +107,28 @@ public class TrayApp : ApplicationContext
         data.IRatingAvg10 = IRatingTracker.AverageOfLast(10);
         data.IRatingAvgCustomWindow = _settings.IRatingAvgCustomWindow;
         data.IRatingAvgCustom = IRatingTracker.AverageOfLast(_settings.IRatingAvgCustomWindow);
+        SRatingTracker.Record(data);
+        data.SRatingAvg5 = SRatingTracker.AverageOfLast(5);
+        data.SRatingAvg10 = SRatingTracker.AverageOfLast(10);
+        data.SRatingAvgCustomWindow = _settings.SRatingAvgCustomWindow;
+        data.SRatingAvgCustom = SRatingTracker.AverageOfLast(_settings.SRatingAvgCustomWindow);
+        data.FlagDisplay = _settings.FlagDisplay;
+
+        if (!_firstTick && data.IsConnected != _wasIracingConnected)
+        {
+            _trayIcon.BalloonTipTitle = "iRPC";
+            _trayIcon.BalloonTipText  = data.IsConnected ? "Connected to iRacing." : "Disconnected from iRacing.";
+            _trayIcon.BalloonTipIcon  = data.IsConnected ? ToolTipIcon.Info : ToolTipIcon.None;
+            _trayIcon.ShowBalloonTip(3000);
+        }
+        _wasIracingConnected = data.IsConnected;
+        _firstTick = false;
+
         if (!_presencePaused)
             _discord.Update(data, _settings);
-        UpdateTrayTooltip(data);
         StatsTracker.Record(data);
+        _ = _widget.UpdateAsync(StatsTracker.Snapshot(), _settings);
+        UpdateTrayTooltip(data);
         _pollBuffer.Enqueue((DateTime.Now, data));
         if (_pollBuffer.Count > 5) _pollBuffer.Dequeue();
 
@@ -150,7 +171,10 @@ public class TrayApp : ApplicationContext
         _presetsMenu.Enabled = true;
         foreach (var (name, preset) in _settings.Presets)
         {
-            var item = new ToolStripMenuItem(name);
+            var item = new ToolStripMenuItem(name)
+            {
+                Checked = (_settings.ActivePreset == name),
+            };
             item.Click += (_, _) => ApplyPreset(name, preset);
             _presetsMenu.DropDownItems.Add(item);
         }
@@ -169,8 +193,10 @@ public class TrayApp : ApplicationContext
                 { DetailsTemplate = kv.Value.DetailsTemplate, StateTemplate = kv.Value.StateTemplate };
         _settings.LargeTextTemplate = preset.LargeTextTemplate;
         _settings.SmallTextTemplate = preset.SmallTextTemplate;
+        _settings.ActivePreset = name;
         _settings.Save();
-        _trayIcon.ShowBalloonTip(2000, "iRPC", $"Preset \"{name}\" applied.", ToolTipIcon.None);
+        RebuildPresetsMenu();
+        _trayIcon.ShowBalloonTip(2000, "iRPC", $"Preset \"{name}\" applied.", ToolTipIcon.Info);
     }
 
     private void OnSettings(object? sender, EventArgs e)

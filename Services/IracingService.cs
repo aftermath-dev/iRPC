@@ -17,7 +17,12 @@ public class IracingService : IDisposable
     private string _seriesName = string.Empty;
     private string _sessionType = string.Empty;
     private int _playerIRating;
+    private float _playerSRating;
+    private string _playerName = string.Empty;
     private int _strengthOfField;
+    private int _totalDrivers;
+    private int _incidentLimit;
+    private int _lastResolvedCarIdx = -1;
     private int _lastSessionNum = -1;
     private DateTime? _sessionStartUtc;
     private DateTime? _stintStartUtc;
@@ -40,6 +45,9 @@ public class IracingService : IDisposable
             _lastYaml = null;
             _carName = _carNumber = _carClass = _licenseString = _seriesName = _sessionType = string.Empty;
             _playerIRating = 0;
+            _playerSRating = 0;
+            _totalDrivers = 0;
+            _lastResolvedCarIdx = -1;
             _lastSessionNum = -1;
             _sessionStartUtc = null;
             _stintStartUtc = null;
@@ -74,8 +82,13 @@ public class IracingService : IDisposable
         data.CurrentLap = GetInt("Lap");
         data.LapsRemain = GetInt("SessionLapsRemain");
         data.TimeRemaining = GetFloat("SessionTimeRemain");
-        data.IsCaution = (sessionFlags & 0xC000) != 0;   // Caution | CautionWaving
-        data.IsCheckered = (sessionFlags & 0x0001) != 0;
+        data.Flag = (sessionFlags & 0x0001) != 0 ? FlagState.Checkered
+                  : (sessionFlags & 0x10000) != 0 ? FlagState.Black
+                  : (sessionFlags & 0x0010) != 0 ? FlagState.Red
+                  : (sessionFlags & 0x0002) != 0 ? FlagState.White
+                  : (sessionFlags & 0xC108) != 0 ? FlagState.Caution   // Caution | CautionWaving | Yellow | YellowWaving
+                  : (sessionFlags & 0x0004) != 0 ? FlagState.Green
+                  : FlagState.None;
         data.Speed = (float)GetFloat("Speed");
         data.FuelLevel = (float)GetFloat("FuelLevel");
         data.FuelPercent = (float)GetFloat("FuelLevelPct");
@@ -100,6 +113,7 @@ public class IracingService : IDisposable
         data.WindDirRad = (float)GetFloat("WindDir");
         data.Humidity = (float)GetFloat("Humidity");
         data.WeatherDeclaredWet = GetBool("WeatherDeclaredWet");
+        data.SimTimeOfDay = (float)GetFloat("SessionTimeOfDay");
 
         int carIdx = GetInt("PlayerCarIdx");
         data.TireCompound = GetStringAtIndex("CarIdxTireCompound", carIdx);
@@ -117,24 +131,25 @@ public class IracingService : IDisposable
         _lastOnPitRoad = data.OnPitRoad;
         _lastIsOnTrack = data.IsOnTrack;
 
-        // Gap to leader and car directly ahead by race position
+        // Gap to leader, car directly ahead, and laps down
         if (data.Position > 1)
         {
             int[] carPositions = GetIntArray("CarIdxPosition");
             float[] carF2Times = GetFloatArray("CarIdxF2Time");
+            int[] carLaps = GetIntArray("CarIdxLap");
             int targetPos = data.Position - 1;
             float playerF2 = carIdx < carF2Times.Length ? carF2Times[carIdx] : -1f;
             data.GapToLeader = playerF2;
-            if (playerF2 >= 0)
+            bool foundAhead = false;
+            for (int i = 0; i < carPositions.Length; i++)
             {
-                for (int i = 0; i < carPositions.Length; i++)
+                if (!foundAhead && carPositions[i] == targetPos && i < carF2Times.Length && carF2Times[i] >= 0)
                 {
-                    if (carPositions[i] == targetPos && i < carF2Times.Length && carF2Times[i] >= 0)
-                    {
-                        data.GapAhead = playerF2 - carF2Times[i];
-                        break;
-                    }
+                    if (playerF2 >= 0) data.GapAhead = playerF2 - carF2Times[i];
+                    foundAhead = true;
                 }
+                if (carPositions[i] == 1 && i < carLaps.Length && carLaps[i] >= 0)
+                    data.LapsDown = Math.Max(0, carLaps[i] - data.CurrentLap);
             }
         }
 
@@ -143,17 +158,39 @@ public class IracingService : IDisposable
         {
             _lastYaml = yaml;
             RefreshStaticData(yaml, sessionNum);
-            _carName       = IracingYaml.GetDriverValue(yaml, carIdx, "CarScreenNameShort") ?? string.Empty;
-            _carCodeName   = IracingYaml.GetDriverValue(yaml, carIdx, "CarPath") ?? string.Empty;
-            _playerIRating = IracingYaml.GetDriverValue(yaml, carIdx, "IRating") is { } irStr
-                && int.TryParse(irStr, out int ir) ? ir : 0;
-            _carNumber     = IracingYaml.GetDriverValue(yaml, carIdx, "CarNumber")?.Trim().Trim('"') ?? string.Empty;
-            _carClass      = IracingYaml.GetDriverValue(yaml, carIdx, "CarClassShortName") ?? string.Empty;
-            _licenseString = IracingYaml.GetDriverValue(yaml, carIdx, "LicString") ?? string.Empty;
-            _seriesName    = IracingYaml.GetValue(yaml, "SeriesName") ?? string.Empty;
-            _sessionType   = FormatSessionType(IracingYaml.GetSessionValue(yaml, sessionNum, "SessionType"));
+            _seriesName  = IracingYaml.GetValue(yaml, "SeriesName") ?? string.Empty;
+            _sessionType = FormatSessionType(IracingYaml.GetSessionValue(yaml, sessionNum, "SessionType"));
             if (Logger.Enabled) Logger.Log($"Session info refreshed (SessionNum={sessionNum}, CarIdx={carIdx})");
             TrackCollector.Record(_trackName, _trackConfig, _trackCodeName);
+        }
+
+        // Driver fields are keyed on carIdx (PlayerCarIdx telemetry var). Re-read whenever
+        // carIdx changes so that if PlayerCarIdx stabilises after the first YAML read (which
+        // happened in Test Drive before 4c0db5a broke it), the correct car data is picked up.
+        if (carIdx != _lastResolvedCarIdx && _lastYaml is { } cachedYaml)
+        {
+            // Test Drive (offline) can report a different PlayerCarIdx in telemetry than in
+            // the YAML's DriverCarIdx. Try the telemetry value first; fall back to the YAML.
+            int resolvedIdx = carIdx;
+            if (IracingYaml.GetDriverValue(cachedYaml, carIdx, "CarPath") is null
+                && IracingYaml.GetValue(cachedYaml, "DriverCarIdx") is { } yamlIdxStr
+                && int.TryParse(yamlIdxStr, out int yamlIdx) && yamlIdx != carIdx)
+            {
+                resolvedIdx = yamlIdx;
+            }
+
+            _carName       = IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "CarScreenNameShort")
+                             ?? IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "CarScreenName")
+                             ?? string.Empty;
+            _carCodeName   = IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "CarPath") ?? string.Empty;
+            _playerIRating = IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "IRating") is { } irStr
+                && int.TryParse(irStr, out int ir) ? ir : 0;
+            _carNumber     = IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "CarNumber")?.Trim().Trim('"') ?? string.Empty;
+            _carClass      = IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "CarClassShortName") ?? string.Empty;
+            _licenseString = IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "LicString") ?? string.Empty;
+            _playerSRating = ParseSRating(_licenseString);
+            _playerName    = IracingYaml.GetDriverValue(cachedYaml, resolvedIdx, "UserName") ?? string.Empty;
+            _lastResolvedCarIdx = carIdx;
             if (_carName.Length > 0) CarCollector.Record(_carName, _carCodeName);
         }
 
@@ -170,15 +207,19 @@ public class IracingService : IDisposable
         data.TrackCodeName = _trackCodeName;
         data.SessionStartUtc = _sessionStartUtc;
         data.StrengthOfField = _strengthOfField;
+        data.TotalDrivers = _totalDrivers;
+        data.IncidentLimit = _incidentLimit;
 
         data.SessionType   = _sessionType;
         data.CarName       = _carName;
         data.CarCodeName   = _carCodeName;
         data.PlayerIRating = _playerIRating;
+        data.PlayerSRating = _playerSRating;
         data.CarNumber     = _carNumber;
         data.CarClass      = _carClass;
         data.LicenseString = _licenseString;
         data.SeriesName    = _seriesName;
+        data.PlayerName    = _playerName;
 
         if (Logger.Enabled) Logger.Log(FormatPollBlock(data, sessionFlags));
 
@@ -234,7 +275,12 @@ public class IracingService : IDisposable
         else
             _trackName = string.Empty;
 
-        _strengthOfField = ComputeStrengthOfField(IracingYaml.GetCompetitorIRatings(yaml));
+        var competitors = IracingYaml.GetCompetitorIRatings(yaml);
+        _strengthOfField = ComputeStrengthOfField(competitors);
+        _totalDrivers = competitors.Count;
+
+        string? limitStr = IracingYaml.GetValue(yaml, "IncidentLimit");
+        _incidentLimit = limitStr != null && int.TryParse(limitStr, out int lim) ? lim : 0;
     }
 
     // iRacing's own SoF formula: the rating R for which 10^(-R/400) equals the average of
@@ -248,6 +294,18 @@ public class IracingService : IDisposable
         foreach (int ir in iratings)
             sum += Math.Pow(10, -ir / 400.0);
         return (int)Math.Round(-400 * Math.Log10(sum / iratings.Count));
+    }
+
+    private static float ParseSRating(string licStr)
+    {
+        if (string.IsNullOrWhiteSpace(licStr)) return 0;
+        foreach (var part in licStr.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (float.TryParse(part, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float sr) && sr > 0)
+                return sr;
+        }
+        return 0;
     }
 
     private static string FormatSessionType(string? raw)

@@ -37,6 +37,7 @@ public class SettingsWindow : Form
     private readonly Dictionary<string, SessionPresenceConfig> _templates;
     private Dictionary<string, PresencePreset> _presets;
     private string _currentSessionKey = "Practice";
+    private string? _activePreset;
 
     private readonly Button _btnSave;
     private readonly System.Windows.Forms.Timer _savedResetTimer;
@@ -64,10 +65,24 @@ public class SettingsWindow : Form
     private readonly CheckBox _cbLaunchOnStartup;
     private readonly CheckBox _cbCheckForUpdatesOnStartup;
     private readonly CheckBox _cbShowGitHubButton;
+    private readonly CheckBox _cbShowPartyField;
+    private readonly CheckBox _cbWidgetEnabled;
+    private readonly TextBox _tbWidgetBotToken;
+    private readonly TextBox _tbClientSecret;
+    private readonly Label _lblLinkedAs;
+    private string _accessToken;
+    private string _refreshToken;
+    private string _userId;
+    private long _tokenExpiry;
+    private string _linkedUsername;
     private readonly CheckBox _cbDebugMode;
     private readonly CheckBox _cbTrackAndCarLogging;
     private readonly CheckBox _cbClassicEditor;
+    private readonly DarkDropDown _cmbFlagDisplay;
     private readonly NumericUpDown _nudIRatingWindow;
+    private readonly NumericUpDown _nudSRatingWindow;
+    private readonly TextBox _tbCustomButtonLabel;
+    private readonly TextBox _tbCustomButtonUrl;
     private readonly DataGridView _dgvOverrides;
 
     private readonly Label _btnResetDetails;
@@ -106,6 +121,7 @@ public class SettingsWindow : Form
             LargeTextTemplate = kv.Value.LargeTextTemplate,
             SmallTextTemplate = kv.Value.SmallTextTemplate,
         });
+        _activePreset = current.ActivePreset;
 
         Text = "iRPC Settings";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -138,7 +154,9 @@ public class SettingsWindow : Form
         _btnResetPresence.Click += OnResetPresence;
 
         FieldLabel(scroll, "Preset", x, ref y);
-        _cmbPreset = Cmb(scroll, x, y, 196, _presets.Count > 0 ? [.. _presets.Keys] : ["(no presets)"], 0);
+        string[] presetNames = _presets.Count > 0 ? [.. _presets.Keys] : ["(no presets)"];
+        int activePresetIdx = _activePreset != null ? Math.Max(Array.IndexOf(presetNames, _activePreset), 0) : 0;
+        _cmbPreset = Cmb(scroll, x, y, 196, presetNames, activePresetIdx);
         _btnLoadPreset   = MakeSmallButton("Load",     x + 204, y);
         _btnSavePreset   = MakeSmallButton("Save as",  x + 268, y);
         _btnDeletePreset = MakeSmallButton("Delete",   x + 352, y);
@@ -148,6 +166,13 @@ public class SettingsWindow : Form
         _btnSavePreset.Click   += OnSavePreset;
         _btnDeletePreset.Click += OnDeletePreset;
         scroll.Controls.AddRange([_btnLoadPreset, _btnSavePreset, _btnDeletePreset]);
+        y += 32;
+
+        var btnExportPresets = MakeSmallButton("Export",  x,       y);
+        var btnImportPresets = MakeSmallButton("Import",  x + 78,  y);
+        btnExportPresets.Click += OnExportPresets;
+        btnImportPresets.Click += OnImportPresets;
+        scroll.Controls.AddRange([btnExportPresets, btnImportPresets]);
         y += 32;
 
         FieldLabel(scroll, "Session type", x, ref y);
@@ -285,10 +310,82 @@ public class SettingsWindow : Form
         _cbLaunchOnStartup          = Cb(scroll, "Launch on Windows startup",              current.LaunchOnStartup,              x, ref y);
         _cbCheckForUpdatesOnStartup = Cb(scroll, "Check for updates on startup",           current.CheckForUpdatesOnStartup,     x, ref y);
         _cbShowGitHubButton         = Cb(scroll, "Show GitHub button",                     current.ShowGitHubButton,             x, ref y);
+        _cbShowPartyField           = Cb(scroll, "Show position as party size (e.g. 5 of 24)", current.ShowPartyField,           x, ref y);
         _cbClassicEditor       = Cb(scroll, "Classic brick-style template editor (takes effect on reopen)", current.ClassicTemplateEditor, x, ref y);
+
+        FieldLabel(scroll, "Flag display style", x, ref y);
+        _cmbFlagDisplay = Cmb(scroll, x, y, 200, ["Text (e.g. Caution)", "Emoji (e.g. 🟡)"], (int)current.FlagDisplay);
+        y += 32;
+
+        FieldLabel(scroll, "Custom button label (optional)", x, ref y);
+        _tbCustomButtonLabel = Tb(scroll, x, y, 220, current.CustomButtonLabel);
+        y += 32;
+
+        FieldLabel(scroll, "Custom button URL", x, ref y);
+        _tbCustomButtonUrl = Tb(scroll, x, y, 340, current.CustomButtonUrl);
+        y += 32;
+
+        // ── Profile Widget ────────────────────────────────────────
+        Divider(scroll, x, ref y);
+        int widgetSectionY = y;
+        Section(scroll, "Profile Widget", x, ref y);
+        scroll.Controls.Add(new Label
+        {
+            Text = "Experimental",
+            Left = x + TextRenderer.MeasureText("Profile Widget", new Font("Segoe UI", 9.5f, FontStyle.Bold)).Width + 10,
+            Top = widgetSectionY + 4,
+            AutoSize = true,
+            ForeColor = Color.FromArgb(250, 166, 26),
+            Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+        });
+        scroll.Controls.Add(new Label
+        {
+            Text = "Push live stats to your Discord profile widget. Requires widget setup in the Discord Developer Portal (Games → Social SDK).",
+            Left = x, Top = y, Width = 484, AutoSize = false, Height = 30,
+            ForeColor = TextMuted, Font = new Font("Segoe UI", 8.5f),
+        });
+        y += 36;
+        _cbWidgetEnabled = Cb(scroll, "Enable profile widget updates", current.WidgetEnabled, x, ref y);
+
+        FieldLabel(scroll, "Bot token (Developer Portal → Bot → Reset Token)", x, ref y);
+        _tbWidgetBotToken = Tb(scroll, x, y, 400, current.DiscordWidgetBotToken);
+        _tbWidgetBotToken.PasswordChar = '•';
+        y += 32;
+
+        _tbClientSecret = Tb(scroll, 0, 0, 0, current.DiscordClientSecret);
+
+        _accessToken    = current.DiscordBotToken;
+        _refreshToken   = current.DiscordRefreshToken;
+        _userId         = current.DiscordUserId;
+        _tokenExpiry    = current.DiscordTokenExpiry;
+        _linkedUsername = current.DiscordLinkedUsername;
+
+        var btnLinkAccount = new Button
+        {
+            Text = "Link Discord Account",
+            Left = x, Top = y, Width = 160, Height = 26,
+            FlatStyle = FlatStyle.Flat, BackColor = BgClose, ForeColor = TextPrimary,
+            Font = new Font("Segoe UI", 8.5f), Cursor = Cursors.Hand,
+        };
+        btnLinkAccount.FlatAppearance.BorderSize = 0;
+        btnLinkAccount.Click += OnLinkAccount;
+        scroll.Controls.Add(btnLinkAccount);
+
+        _lblLinkedAs = new Label
+        {
+            Left = x + 168, Top = y + 5,
+            AutoSize = true, ForeColor = TextMuted, Font = new Font("Segoe UI", 8.5f),
+        };
+        scroll.Controls.Add(_lblLinkedAs);
+        UpdateLinkedLabel();
+        y += 34;
 
         FieldLabel(scroll, "Custom iRating avg window (races)", x, ref y);
         _nudIRatingWindow = Nud(scroll, x, y, 80, current.IRatingAvgCustomWindow);
+        y += 32;
+
+        FieldLabel(scroll, "Custom SR avg window (races)", x, ref y);
+        _nudSRatingWindow = Nud(scroll, x, y, 80, current.SRatingAvgCustomWindow);
         y += 32;
 
         // ── Key Overrides section ────────────────────────────────
@@ -482,6 +579,10 @@ public class SettingsWindow : Form
             PitRepairLeft = 12f, PitOptRepairLeft = 8f,
             FastRepairsUsed = 1, FastRepairsAvailable = 3, IncidentCount = 3,
             TireCompound = "Soft",
+            TotalDrivers = 24, LapsDown = 0,
+            SimTimeOfDay = 12 * 3600 + 30 * 60,
+            PlayerSRating = 3.44f, SRatingAvg5 = 3.40f, SRatingAvg10 = 3.38f,
+            SRatingAvgCustom = 3.36f, SRatingAvgCustomWindow = Settings.SRatingAvgCustomWindow,
         };
         _previewDetails.Text = DiscordService.ApplyTemplate(_brDetails.GetTemplate(), data);
         _previewState.Text   = DiscordService.ApplyTemplate(_brState.GetTemplate(), data);
@@ -594,8 +695,9 @@ public class SettingsWindow : Form
     {
         bool any = _presets.Count > 0;
         string[] names = any ? [.. _presets.Keys] : ["(no presets)"];
-        int sel = any && selectName != null ? Array.IndexOf(names, selectName) : 0;
-        _cmbPreset.SetItems(names, Math.Max(sel, 0));
+        string? pick = selectName ?? _activePreset;
+        int sel = any && pick != null ? Math.Max(Array.IndexOf(names, pick), 0) : 0;
+        _cmbPreset.SetItems(names, sel);
         _btnLoadPreset.Enabled   = any;
         _btnDeletePreset.Enabled = any;
     }
@@ -610,6 +712,7 @@ public class SettingsWindow : Form
                 { DetailsTemplate = kv.Value.DetailsTemplate, StateTemplate = kv.Value.StateTemplate };
         _brLargeText.SetFromTemplate(preset.LargeTextTemplate);
         _brSmallText.SetFromTemplate(preset.SmallTextTemplate);
+        _activePreset = name;
         LoadSessionTemplate();
         UpdatePreview();
     }
@@ -642,8 +745,77 @@ public class SettingsWindow : Form
         if (name is null || !_presets.ContainsKey(name)) return;
         if (MessageBox.Show($"Delete preset \"{name}\"?", "iRPC",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        if (name == _activePreset) _activePreset = null;
         _presets.Remove(name);
         RefreshPresetDropdown();
+    }
+
+    private void OnExportPresets(object? sender, EventArgs e)
+    {
+        var userPresets = _presets
+            .Where(kv => !AppSettings.DefaultPresets.ContainsKey(kv.Key))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        if (userPresets.Count == 0)
+        {
+            MessageBox.Show("No custom presets to export. Save a preset first.",
+                "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dlg = new SaveFileDialog
+        {
+            Title = "Export presets",
+            Filter = "iRPC presets (*.json)|*.json",
+            FileName = "irpc_presets.json",
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        string json = System.Text.Json.JsonSerializer.Serialize(userPresets,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(dlg.FileName, json);
+        MessageBox.Show($"Exported {userPresets.Count} preset(s).",
+            "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void OnImportPresets(object? sender, EventArgs e)
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = "Import presets",
+            Filter = "iRPC presets (*.json)|*.json",
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        Dictionary<string, PresencePreset>? imported;
+        try
+        {
+            imported = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, PresencePreset>>(
+                File.ReadAllText(dlg.FileName));
+        }
+        catch
+        {
+            MessageBox.Show("Couldn't read that file. Make sure it's a valid iRPC preset export.",
+                "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (imported is null || imported.Count == 0)
+        {
+            MessageBox.Show("No presets found in that file.", "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        int added = 0;
+        foreach (var (name, preset) in imported)
+        {
+            if (AppSettings.DefaultPresets.ContainsKey(name)) continue;
+            _presets[name] = preset;
+            added++;
+        }
+
+        RefreshPresetDropdown();
+        MessageBox.Show($"Imported {added} preset(s).", "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private string? PromptText(string message, string defaultValue = "")
@@ -704,6 +876,7 @@ public class SettingsWindow : Form
         };
         Settings = new AppSettings
         {
+            HasShownWelcome          = true,
             DiscordAppId             = _appIdBox.Text.Trim(),
             LargeIcon                = (LargeIconMode)_cmbLargeIcon.SelectedIndex,
             SmallIcon                = (SmallIconMode)_cmbSmallIcon.SelectedIndex,
@@ -711,13 +884,27 @@ public class SettingsWindow : Form
             SmallTextTemplate        = _brSmallText.GetTemplate(),
             LaunchOnStartup          = _cbLaunchOnStartup.Checked,
             CheckForUpdatesOnStartup = _cbCheckForUpdatesOnStartup.Checked,
-            ShowGitHubButton             = _cbShowGitHubButton.Checked,
-            ClassicTemplateEditor        = _cbClassicEditor.Checked,
-            DebugMode                    = _cbDebugMode.Checked,
+            ShowGitHubButton         = _cbShowGitHubButton.Checked,
+            ShowPartyField           = _cbShowPartyField.Checked,
+            ClassicTemplateEditor    = _cbClassicEditor.Checked,
+            FlagDisplay              = (FlagStyle)_cmbFlagDisplay.SelectedIndex,
+            DebugMode                = _cbDebugMode.Checked,
             TrackAndCarLogging       = _cbTrackAndCarLogging.Checked,
             IRatingAvgCustomWindow   = (int)_nudIRatingWindow.Value,
+            SRatingAvgCustomWindow   = (int)_nudSRatingWindow.Value,
+            CustomButtonLabel        = _tbCustomButtonLabel.Text.Trim(),
+            CustomButtonUrl          = _tbCustomButtonUrl.Text.Trim(),
+            WidgetEnabled            = _cbWidgetEnabled.Checked,
+            DiscordWidgetBotToken    = _tbWidgetBotToken.Text.Trim(),
+            DiscordClientSecret      = _tbClientSecret.Text.Trim(),
+            DiscordBotToken          = _accessToken,
+            DiscordRefreshToken      = _refreshToken,
+            DiscordTokenExpiry       = _tokenExpiry,
+            DiscordUserId            = _userId,
+            DiscordLinkedUsername    = _linkedUsername,
             SessionTemplates         = _templates,
             Presets                  = _presets,
+            ActivePreset             = _activePreset,
         };
         Settings.Save();
 
@@ -733,6 +920,45 @@ public class SettingsWindow : Form
 
         try { _onSave(Settings); }
         finally { ShowSavedFeedback(); }
+    }
+
+    private void OnLinkAccount(object? sender, EventArgs e)
+    {
+        string appId  = _appIdBox.Text.Trim().Length > 0 ? _appIdBox.Text.Trim() : Settings.DiscordAppId;
+        string botToken = _tbWidgetBotToken.Text.Trim();
+        using var win = new WidgetLinkWindow(appId, string.Empty, (token, userId, expiry, username) =>
+        {
+            _accessToken    = token;
+            _refreshToken   = string.Empty;
+            _userId         = userId;
+            _tokenExpiry    = expiry;
+            _linkedUsername = username;
+            // Persist immediately so the token survives even if Settings isn't saved
+            Settings.DiscordWidgetBotToken = botToken;
+            Settings.DiscordBotToken       = token;
+            Settings.DiscordRefreshToken   = string.Empty;
+            Settings.DiscordTokenExpiry    = expiry;
+            Settings.DiscordUserId         = userId;
+            Settings.DiscordLinkedUsername = username;
+            Settings.Save();
+            UpdateLinkedLabel();
+        });
+        win.Icon = Icon;
+        win.ShowDialog(this);
+    }
+
+    private void UpdateLinkedLabel()
+    {
+        if (string.IsNullOrWhiteSpace(_linkedUsername))
+        {
+            _lblLinkedAs.Text      = "Not linked";
+            _lblLinkedAs.ForeColor = TextMuted;
+        }
+        else
+        {
+            _lblLinkedAs.Text      = $"✓  {_linkedUsername}";
+            _lblLinkedAs.ForeColor = GreenSaved;
+        }
     }
 
     private void OnExportTelemetry(object? sender, EventArgs e)
