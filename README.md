@@ -18,8 +18,8 @@ A lightweight Windows system tray app that shows your live iRacing session as Di
 - **Track and car brand logos** pulled directly from GitHub - no Discord asset limit
 - **Elapsed session timer** shown as a Discord timestamp
 - **Stats window** - tracks your total time on track broken down by session type, car, and track
-- **Presence presets** - save and switch between layouts instantly from the tray menu. Eight built-in presets included
-- **Discord Profile Widget (Experimental)** - push live iRacing stats to your Discord profile card, visible to anyone who views your profile
+- **Presence presets** - save and switch between layouts instantly from the tray menu. Eight built-in presets included, plus export/import to share your own
+- **Discord Profile Widget (Experimental - a Discord-side experiment, not an iRPC one)** - push live iRacing stats to your Discord profile card, visible to anyone who views your profile
 - **Pause Presence** - hide your presence from the tray menu without closing the app
 - **Launches on Windows startup** (optional)
 - **Self-updating** - checks GitHub Releases, downloads, verifies, and installs with one click
@@ -152,6 +152,8 @@ Available chips:
 |------------------------------|------------------------------------------------------------|
 | Discord App ID               | Discord application used for Rich Presence                 |
 | Show GitHub button           | Show a link to this repo on the presence                   |
+| Show party field             | Show your race position and field size as a Discord party indicator (e.g. "5 of 24") |
+| Flag display style           | Show the `{flag}` chip as text (e.g. Caution) or an emoji (e.g. 🟡) |
 | Launch on startup            | Start iRPC automatically with Windows                      |
 | Check for updates on startup | Silently check for a newer release each time iRPC launches |
 | Auto-populate key overrides  | Append newly seen tracks/cars to `key_overrides.json`      |
@@ -173,7 +175,7 @@ Open via the tray menu - **Stats**. Shows your accumulated time on track, broken
 
 iRPC can push live iRacing stats to a Discord profile widget card that shows on your profile while you're in a session. This feature requires some one-time setup in the Discord Developer Portal.
 
-> **Note:** Discord's profile widget API is not publicly released. It currently only shows for users who have the widget renderer experiment enabled on their Discord client. Availability will expand as Discord rolls it out.
+> **Note:** This is marked Experimental because the feature itself is experimental on Discord's side, not because of anything in iRPC. Discord's profile widget API is not publicly released - it currently only shows for users who have the widget renderer experiment enabled on their Discord client. Availability will expand as Discord rolls it out, and things may change or break until then.
 
 ### Setup
 

@@ -38,11 +38,13 @@ public class SettingsWindow : Form
     private Dictionary<string, PresencePreset> _presets;
     private string _currentSessionKey = "Practice";
     private string? _activePreset;
+    private bool _presetSourceIsUser;
 
     private readonly Button _btnSave;
     private readonly System.Windows.Forms.Timer _savedResetTimer;
 
-    private readonly DarkDropDown   _cmbPreset;
+    private readonly DarkDropDown   _cmbPreset;      // built-in presets, never deletable
+    private readonly DarkDropDown   _cmbUserPreset;  // user-saved presets
     private readonly Button         _btnLoadPreset;
     private readonly Button         _btnSavePreset;
     private readonly Button         _btnDeletePreset;
@@ -81,8 +83,6 @@ public class SettingsWindow : Form
     private readonly DarkDropDown _cmbFlagDisplay;
     private readonly NumericUpDown _nudIRatingWindow;
     private readonly NumericUpDown _nudSRatingWindow;
-    private readonly TextBox _tbCustomButtonLabel;
-    private readonly TextBox _tbCustomButtonUrl;
     private readonly DataGridView _dgvOverrides;
 
     private readonly Label _btnResetDetails;
@@ -154,25 +154,36 @@ public class SettingsWindow : Form
         _btnResetPresence.Click += OnResetPresence;
 
         FieldLabel(scroll, "Preset", x, ref y);
-        string[] presetNames = _presets.Count > 0 ? [.. _presets.Keys] : ["(no presets)"];
-        int activePresetIdx = _activePreset != null ? Math.Max(Array.IndexOf(presetNames, _activePreset), 0) : 0;
-        _cmbPreset = Cmb(scroll, x, y, 196, presetNames, activePresetIdx);
-        _btnLoadPreset   = MakeSmallButton("Load",     x + 204, y);
-        _btnSavePreset   = MakeSmallButton("Save as",  x + 268, y);
-        _btnDeletePreset = MakeSmallButton("Delete",   x + 352, y);
-        _btnLoadPreset.Enabled   = _presets.Count > 0;
-        _btnDeletePreset.Enabled = _presets.Count > 0;
+        scroll.Controls.Add(new Label { Text = "Built-in", Left = x,       Top = y, Width = 200, ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f), AutoSize = false });
+        scroll.Controls.Add(new Label { Text = "Custom",   Left = x + 208, Top = y, Width = 200, ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f), AutoSize = false });
+        y += 13;
+
+        string[] builtInPresetNames = [.. AppSettings.DefaultPresets.Keys];
+        string[] customPresetNames  = [.. _presets.Keys.Where(k => !AppSettings.DefaultPresets.ContainsKey(k))];
+        _presetSourceIsUser = _activePreset != null && customPresetNames.Contains(_activePreset);
+        int builtInIdx = !_presetSourceIsUser && _activePreset != null ? Math.Max(Array.IndexOf(builtInPresetNames, _activePreset), 0) : 0;
+        int customIdx  = _presetSourceIsUser ? Math.Max(Array.IndexOf(customPresetNames, _activePreset), 0) : 0;
+
+        _cmbPreset     = Cmb(scroll, x,       y, 200, builtInPresetNames, builtInIdx);
+        _cmbUserPreset = Cmb(scroll, x + 208, y, 200, customPresetNames.Length > 0 ? customPresetNames : ["(none)"], customIdx);
+        _cmbPreset.Click                 += (_, _) => _presetSourceIsUser = false;
+        _cmbPreset.SelectedIndexChanged  += (_, _) => _presetSourceIsUser = false;
+        _cmbUserPreset.Click                += (_, _) => _presetSourceIsUser = true;
+        _cmbUserPreset.SelectedIndexChanged += (_, _) => _presetSourceIsUser = true;
+        y += 28;
+
+        _btnLoadPreset   = MakeSmallButton("Load",     x,       y);
+        _btnSavePreset   = MakeSmallButton("Save as",  x + 84,  y);
+        _btnDeletePreset = MakeSmallButton("Delete",   x + 168, y);
+        var btnExportPresets = MakeSmallButton("Export", x + 252, y);
+        var btnImportPresets = MakeSmallButton("Import", x + 336, y);
+        _btnDeletePreset.Enabled = customPresetNames.Length > 0;
         _btnLoadPreset.Click   += OnLoadPreset;
         _btnSavePreset.Click   += OnSavePreset;
         _btnDeletePreset.Click += OnDeletePreset;
-        scroll.Controls.AddRange([_btnLoadPreset, _btnSavePreset, _btnDeletePreset]);
-        y += 32;
-
-        var btnExportPresets = MakeSmallButton("Export",  x,       y);
-        var btnImportPresets = MakeSmallButton("Import",  x + 78,  y);
         btnExportPresets.Click += OnExportPresets;
         btnImportPresets.Click += OnImportPresets;
-        scroll.Controls.AddRange([btnExportPresets, btnImportPresets]);
+        scroll.Controls.AddRange([_btnLoadPreset, _btnSavePreset, _btnDeletePreset, btnExportPresets, btnImportPresets]);
         y += 32;
 
         FieldLabel(scroll, "Session type", x, ref y);
@@ -315,14 +326,6 @@ public class SettingsWindow : Form
 
         FieldLabel(scroll, "Flag display style", x, ref y);
         _cmbFlagDisplay = Cmb(scroll, x, y, 200, ["Text (e.g. Caution)", "Emoji (e.g. 🟡)"], (int)current.FlagDisplay);
-        y += 32;
-
-        FieldLabel(scroll, "Custom button label (optional)", x, ref y);
-        _tbCustomButtonLabel = Tb(scroll, x, y, 220, current.CustomButtonLabel);
-        y += 32;
-
-        FieldLabel(scroll, "Custom button URL", x, ref y);
-        _tbCustomButtonUrl = Tb(scroll, x, y, 340, current.CustomButtonUrl);
         y += 32;
 
         // ── Profile Widget ────────────────────────────────────────
@@ -691,20 +694,27 @@ public class SettingsWindow : Form
         UpdatePreview();
     }
 
-    private void RefreshPresetDropdown(string? selectName = null)
+    private void RefreshPresetDropdown(string? selectName = null, bool? selectIsUser = null)
     {
-        bool any = _presets.Count > 0;
-        string[] names = any ? [.. _presets.Keys] : ["(no presets)"];
+        string[] builtInNames = [.. AppSettings.DefaultPresets.Keys];
+        string[] customNames  = [.. _presets.Keys.Where(k => !AppSettings.DefaultPresets.ContainsKey(k))];
+        bool hasCustom = customNames.Length > 0;
+
         string? pick = selectName ?? _activePreset;
-        int sel = any && pick != null ? Math.Max(Array.IndexOf(names, pick), 0) : 0;
-        _cmbPreset.SetItems(names, sel);
-        _btnLoadPreset.Enabled   = any;
-        _btnDeletePreset.Enabled = any;
+        bool isUser = selectIsUser ?? (pick != null && customNames.Contains(pick));
+        _presetSourceIsUser = isUser;
+
+        int builtInSel = !isUser && pick != null ? Math.Max(Array.IndexOf(builtInNames, pick), 0) : 0;
+        int customSel  = isUser && pick != null ? Math.Max(Array.IndexOf(customNames, pick), 0) : 0;
+
+        _cmbPreset.SetItems(builtInNames, builtInSel);
+        _cmbUserPreset.SetItems(hasCustom ? customNames : ["(none)"], customSel);
+        _btnDeletePreset.Enabled = hasCustom;
     }
 
     private void OnLoadPreset(object? sender, EventArgs e)
     {
-        string? name = _cmbPreset.SelectedItem;
+        string? name = _presetSourceIsUser ? _cmbUserPreset.SelectedItem : _cmbPreset.SelectedItem;
         if (name is null || !_presets.TryGetValue(name, out var preset)) return;
 
         foreach (var kv in preset.SessionTemplates)
@@ -722,8 +732,16 @@ public class SettingsWindow : Form
         _templates[_currentSessionKey] = new SessionPresenceConfig
             { DetailsTemplate = _brDetails.GetTemplate(), StateTemplate = _brState.GetTemplate() };
 
-        string? name = PromptText("Preset name:", _cmbPreset.SelectedItem ?? "");
+        string suggested = _presetSourceIsUser ? (_cmbUserPreset.SelectedItem ?? "") : "";
+        string? name = PromptText("Preset name:", suggested);
         if (string.IsNullOrWhiteSpace(name)) return;
+
+        if (AppSettings.DefaultPresets.ContainsKey(name))
+        {
+            MessageBox.Show($"\"{name}\" is a built-in preset name and can't be overwritten. Choose a different name.",
+                "iRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
 
         if (_presets.ContainsKey(name) &&
             MessageBox.Show($"Overwrite preset \"{name}\"?", "iRPC",
@@ -736,12 +754,14 @@ public class SettingsWindow : Form
             LargeTextTemplate = _brLargeText.GetTemplate(),
             SmallTextTemplate = _brSmallText.GetTemplate(),
         };
-        RefreshPresetDropdown(name);
+        _activePreset = name;
+        RefreshPresetDropdown(name, selectIsUser: true);
     }
 
     private void OnDeletePreset(object? sender, EventArgs e)
     {
-        string? name = _cmbPreset.SelectedItem;
+        if (!_presetSourceIsUser) return;
+        string? name = _cmbUserPreset.SelectedItem;
         if (name is null || !_presets.ContainsKey(name)) return;
         if (MessageBox.Show($"Delete preset \"{name}\"?", "iRPC",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
@@ -892,8 +912,6 @@ public class SettingsWindow : Form
             TrackAndCarLogging       = _cbTrackAndCarLogging.Checked,
             IRatingAvgCustomWindow   = (int)_nudIRatingWindow.Value,
             SRatingAvgCustomWindow   = (int)_nudSRatingWindow.Value,
-            CustomButtonLabel        = _tbCustomButtonLabel.Text.Trim(),
-            CustomButtonUrl          = _tbCustomButtonUrl.Text.Trim(),
             WidgetEnabled            = _cbWidgetEnabled.Checked,
             DiscordWidgetBotToken    = _tbWidgetBotToken.Text.Trim(),
             DiscordClientSecret      = _tbClientSecret.Text.Trim(),

@@ -37,8 +37,6 @@ public class AppSettings
     public bool ShowPartyField { get; set; } = true;
     public int IRatingAvgCustomWindow { get; set; } = 20;
     public int SRatingAvgCustomWindow { get; set; } = 20;
-    public string CustomButtonLabel { get; set; } = string.Empty;
-    public string CustomButtonUrl { get; set; } = string.Empty;
     public bool WidgetEnabled { get; set; } = false;
     public string DiscordWidgetBotToken { get; set; } = string.Empty;
     public string DiscordClientSecret { get; set; } = string.Empty;

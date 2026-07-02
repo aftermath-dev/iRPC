@@ -20,8 +20,6 @@ public class DiscordService : IDisposable
     private string? _lastSmallImageKey;
     private string? _lastSmallImageText;
     private bool? _lastShowGitHubButton;
-    private string? _lastCustomButtonLabel;
-    private string? _lastCustomButtonUrl;
     private DateTime? _lastTimestamp;
     private int? _lastPartySize;
     private int? _lastPartyMax;
@@ -61,25 +59,19 @@ public class DiscordService : IDisposable
             && assets.SmallImageKey == _lastSmallImageKey
             && assets.SmallImageText == _lastSmallImageText
             && settings.ShowGitHubButton == _lastShowGitHubButton
-            && settings.CustomButtonLabel == _lastCustomButtonLabel
-            && settings.CustomButtonUrl == _lastCustomButtonUrl
             && timestamp == _lastTimestamp
             && partySize == _lastPartySize
             && partyMax == _lastPartyMax;
         if (unchanged) return;
-
-        var buttons = new List<DiscordRPC.Button>();
-        if (settings.ShowGitHubButton)
-            buttons.Add(new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" });
-        if (!string.IsNullOrWhiteSpace(settings.CustomButtonLabel) && !string.IsNullOrWhiteSpace(settings.CustomButtonUrl))
-            buttons.Add(new DiscordRPC.Button { Label = settings.CustomButtonLabel.Length > 32 ? settings.CustomButtonLabel[..32] : settings.CustomButtonLabel, Url = settings.CustomButtonUrl });
 
         var presence = new RichPresence
         {
             Details = details,
             State   = state,
             Assets  = assets,
-            Buttons = buttons.Count > 0 ? [.. buttons] : null,
+            Buttons = settings.ShowGitHubButton
+                ? [new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" }]
+                : null,
             Party   = party,
         };
 
@@ -97,8 +89,6 @@ public class DiscordService : IDisposable
         _lastSmallImageKey = assets.SmallImageKey;
         _lastSmallImageText = assets.SmallImageText;
         _lastShowGitHubButton = settings.ShowGitHubButton;
-        _lastCustomButtonLabel = settings.CustomButtonLabel;
-        _lastCustomButtonUrl = settings.CustomButtonUrl;
         _lastTimestamp = timestamp;
         _lastPartySize = partySize;
         _lastPartyMax = partyMax;
@@ -125,8 +115,6 @@ public class DiscordService : IDisposable
         _lastSmallImageKey = null;
         _lastSmallImageText = null;
         _lastShowGitHubButton = null;
-        _lastCustomButtonLabel = null;
-        _lastCustomButtonUrl = null;
         _lastTimestamp = null;
         _lastPartySize = null;
         _lastPartyMax = null;
