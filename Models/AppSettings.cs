@@ -34,7 +34,6 @@ public class AppSettings
     public bool DebugMode { get; set; } = false;
     public bool TrackAndCarLogging { get; set; } = false;
     public bool ClassicTemplateEditor { get; set; } = false;
-    public bool ShowPartyField { get; set; } = true;
     public int IRatingAvgCustomWindow { get; set; } = 20;
     public int SRatingAvgCustomWindow { get; set; } = 20;
     public bool WidgetEnabled { get; set; } = false;

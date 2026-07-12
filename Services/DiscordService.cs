@@ -21,8 +21,6 @@ public class DiscordService : IDisposable
     private string? _lastSmallImageText;
     private bool? _lastShowGitHubButton;
     private DateTime? _lastTimestamp;
-    private int? _lastPartySize;
-    private int? _lastPartyMax;
 
     // True only while the named-pipe handshake with the Discord client is actually live —
     // IsInitialized just means Initialize() was called and stays true even after Discord closes.
@@ -45,12 +43,6 @@ public class DiscordService : IDisposable
         var assets = BuildAssets(data, settings);
         DateTime? timestamp = data.SessionStartUtc;
 
-        Party? party = settings.ShowPartyField && data.Position > 0 && data.TotalDrivers > 1
-            ? new Party { ID = "irpc", Size = data.Position, Max = Math.Max(data.Position, data.TotalDrivers) }
-            : null;
-        int? partySize = party?.Size;
-        int? partyMax  = party?.Max;
-
         bool unchanged = _presenceActive
             && details == _lastDetails
             && state == _lastState
@@ -59,9 +51,7 @@ public class DiscordService : IDisposable
             && assets.SmallImageKey == _lastSmallImageKey
             && assets.SmallImageText == _lastSmallImageText
             && settings.ShowGitHubButton == _lastShowGitHubButton
-            && timestamp == _lastTimestamp
-            && partySize == _lastPartySize
-            && partyMax == _lastPartyMax;
+            && timestamp == _lastTimestamp;
         if (unchanged) return;
 
         var presence = new RichPresence
@@ -72,7 +62,6 @@ public class DiscordService : IDisposable
             Buttons = settings.ShowGitHubButton
                 ? [new DiscordRPC.Button { Label = "iRPC on GitHub", Url = "https://github.com/aftermath-dev/iRPC" }]
                 : null,
-            Party   = party,
         };
 
         if (timestamp.HasValue)
@@ -90,8 +79,6 @@ public class DiscordService : IDisposable
         _lastSmallImageText = assets.SmallImageText;
         _lastShowGitHubButton = settings.ShowGitHubButton;
         _lastTimestamp = timestamp;
-        _lastPartySize = partySize;
-        _lastPartyMax = partyMax;
     }
 
     public void Clear()
@@ -116,8 +103,6 @@ public class DiscordService : IDisposable
         _lastSmallImageText = null;
         _lastShowGitHubButton = null;
         _lastTimestamp = null;
-        _lastPartySize = null;
-        _lastPartyMax = null;
     }
 
     public static string ApplyTemplate(string template, SessionData data)

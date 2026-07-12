@@ -152,11 +152,10 @@ Available chips:
 |------------------------------|------------------------------------------------------------|
 | Discord App ID               | Discord application used for Rich Presence                 |
 | Show GitHub button           | Show a link to this repo on the presence                   |
-| Show party field             | Show your race position and field size as a Discord party indicator (e.g. "5 of 24") |
 | Flag display style           | Show the `{flag}` chip as text (e.g. Caution) or an emoji (e.g. 🟡) |
 | Launch on startup            | Start iRPC automatically with Windows                      |
 | Check for updates on startup | Silently check for a newer release each time iRPC launches |
-| Auto-populate key overrides  | Append newly seen tracks/cars to `key_overrides.json`      |
+| Log new tracks/cars          | Writes every track/car iRPC sees to `tracks.txt` / `cars.txt`, so you can spot which ones need a `key_overrides.json` entry |
 | iRating average window       | Number of races used for the "Avg (Custom)" iRating chip   |
 | SR average window            | Number of races used for the "SR Avg (Custom)" chip        |
 | Debug mode                   | Enables verbose file logging to `iRPC.log`                 |
@@ -290,3 +289,4 @@ Output: `bin/Release/net8.0-windows/win-x64/publish/iRPC.exe` (~1 MB, requires .
 | `%AppData%\iRPC\sr_history.json`      | Your recorded race-end Safety Ratings, used for rolling averages    |
 | `%AppData%\iRPC\key_overrides.json`   | Asset key remaps (e.g. `track_spa_francorchamps` -> `track_spa`)    |
 | `%AppData%\iRPC\tracks.txt`           | Every unique track seen, auto-appended per session (if enabled)     |
+| `%AppData%\iRPC\cars.txt`             | Every unique car seen, auto-appended per session (if enabled)       |

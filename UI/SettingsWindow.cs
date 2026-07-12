@@ -67,7 +67,6 @@ public class SettingsWindow : Form
     private readonly CheckBox _cbLaunchOnStartup;
     private readonly CheckBox _cbCheckForUpdatesOnStartup;
     private readonly CheckBox _cbShowGitHubButton;
-    private readonly CheckBox _cbShowPartyField;
     private readonly CheckBox _cbWidgetEnabled;
     private readonly TextBox _tbWidgetBotToken;
     private readonly TextBox _tbClientSecret;
@@ -321,7 +320,6 @@ public class SettingsWindow : Form
         _cbLaunchOnStartup          = Cb(scroll, "Launch on Windows startup",              current.LaunchOnStartup,              x, ref y);
         _cbCheckForUpdatesOnStartup = Cb(scroll, "Check for updates on startup",           current.CheckForUpdatesOnStartup,     x, ref y);
         _cbShowGitHubButton         = Cb(scroll, "Show GitHub button",                     current.ShowGitHubButton,             x, ref y);
-        _cbShowPartyField           = Cb(scroll, "Show position as party size (e.g. 5 of 24)", current.ShowPartyField,           x, ref y);
         _cbClassicEditor       = Cb(scroll, "Classic brick-style template editor (takes effect on reopen)", current.ClassicTemplateEditor, x, ref y);
 
         FieldLabel(scroll, "Flag display style", x, ref y);
@@ -905,7 +903,6 @@ public class SettingsWindow : Form
             LaunchOnStartup          = _cbLaunchOnStartup.Checked,
             CheckForUpdatesOnStartup = _cbCheckForUpdatesOnStartup.Checked,
             ShowGitHubButton         = _cbShowGitHubButton.Checked,
-            ShowPartyField           = _cbShowPartyField.Checked,
             ClassicTemplateEditor    = _cbClassicEditor.Checked,
             FlagDisplay              = (FlagStyle)_cmbFlagDisplay.SelectedIndex,
             DebugMode                = _cbDebugMode.Checked,
