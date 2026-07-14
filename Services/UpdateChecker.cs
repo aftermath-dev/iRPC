@@ -25,23 +25,63 @@ public static class UpdateChecker
         string? notes = doc.RootElement.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() : null;
 
         string? assetUrl = null, assetName = null, assetDigest = null;
+        string? manifestUrl = null;
+        var allAssets = new List<(string Name, string DownloadUrl, string? Digest)>();
+
         if (doc.RootElement.TryGetProperty("assets", out var assets))
         {
             foreach (var asset in assets.EnumerateArray())
             {
                 string name = asset.GetProperty("name").GetString() ?? "";
-                if (name.Equals("iRPC.exe", StringComparison.OrdinalIgnoreCase))
+                string downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
+                string? digest = null;
+                if (asset.TryGetProperty("digest", out var digestEl))
                 {
-                    assetName = name;
-                    assetUrl = asset.GetProperty("browser_download_url").GetString();
-                    if (asset.TryGetProperty("digest", out var digestEl))
-                    {
-                        string? digest = digestEl.GetString();
-                        if (digest is not null && digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
-                            assetDigest = digest["sha256:".Length..].ToLowerInvariant();
-                    }
-                    break;
+                    string? d = digestEl.GetString();
+                    if (d is not null && d.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+                        digest = d["sha256:".Length..].ToLowerInvariant();
                 }
+                allAssets.Add((name, downloadUrl, digest));
+                if (name.Equals("update.json", StringComparison.OrdinalIgnoreCase))
+                    manifestUrl = downloadUrl;
+            }
+        }
+
+        // Prefer manifest: tells us exactly which asset to download regardless of filename
+        if (manifestUrl is not null)
+        {
+            try
+            {
+                string manifestJson = await _http.GetStringAsync(manifestUrl);
+                using var manifest = JsonDocument.Parse(manifestJson);
+                if (manifest.RootElement.TryGetProperty("filename", out var filenameEl))
+                {
+                    string? target = filenameEl.GetString();
+                    var match = allAssets.FirstOrDefault(a => a.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+                    if (match.DownloadUrl is not null)
+                    {
+                        assetName = match.Name;
+                        assetUrl = match.DownloadUrl;
+                        assetDigest = match.Digest;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // Fall back to name heuristic if no manifest or manifest didn't resolve
+        if (assetUrl is null)
+        {
+            foreach (var (name, downloadUrl, digest) in allAssets)
+            {
+                bool isReleaseExe = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                    && name.StartsWith("iRPC", StringComparison.OrdinalIgnoreCase)
+                    && !name.Contains("debug", StringComparison.OrdinalIgnoreCase);
+                if (!isReleaseExe) continue;
+                assetName = name;
+                assetUrl = downloadUrl;
+                assetDigest = digest;
+                if (name.Equals("iRPC.exe", StringComparison.OrdinalIgnoreCase)) break;
             }
         }
 

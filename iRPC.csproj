@@ -8,8 +8,8 @@
     <AssemblyName>iRPC</AssemblyName>
     <RootNamespace>iRPC</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.0.8</Version>
-    <InformationalVersion>0.0.8</InformationalVersion>
+    <Version>0.0.9</Version>
+    <InformationalVersion>0.0.9</InformationalVersion>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationIcon>ArtAssets\icon.ico</ApplicationIcon>
   </PropertyGroup>

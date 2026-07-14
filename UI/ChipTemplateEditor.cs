@@ -11,13 +11,13 @@ public class ChipTemplateEditor : Control, ITemplateEditor
 {
     private static readonly (string Group, string[] Keys)[] Groups =
     [
-        ("Session",      ["session", "track", "config", "car"]),
-        ("Position",     ["position", "class_position", "lap", "laps_total", "laps_remain", "time_remain", "flag"]),
-        ("Lap Times",    ["last_lap", "best_lap"]),
-        ("Rating",       ["sof", "irating", "irating_avg5", "irating_avg10", "irating_avg_custom"]),
-        ("Speed && Fuel", ["speed_kmh", "speed_mph", "fuel", "fuel_gal", "fuel_pct"]),
-        ("Weather",       ["sky", "air_temp_c", "air_temp_f", "track_temp_c", "track_temp_f"]),
-        ("Pit && Status", ["pit_service", "pit_repair", "pit_opt_repair", "fast_repairs", "pit", "garage", "incidents"]),
+        ("Session",       ["session", "track", "config", "car", "series", "car_number", "class", "tire"]),
+        ("Position",      ["position", "class_position", "lap", "laps_total", "laps_remain", "time_remain", "flag", "drivers", "laps_down", "gap_ahead", "gap_leader", "stint_time"]),
+        ("Lap Times",     ["last_lap", "best_lap", "lap_time", "delta", "session_time"]),
+        ("Rating",        ["sof", "irating", "irating_avg5", "irating_avg10", "irating_avg_custom", "sr", "sr_avg5", "sr_avg10", "sr_avg_custom", "license"]),
+        ("Speed && Fuel", ["speed_kmh", "speed_mph", "gear", "rpm", "fuel", "fuel_gal", "fuel_pct", "fuel_laps"]),
+        ("Weather",       ["sky", "air_temp_c", "air_temp_f", "track_temp_c", "track_temp_f", "wind", "wind_mph", "humidity", "wet", "time_of_day"]),
+        ("Pit && Status", ["pit_service", "pit_repair", "pit_opt_repair", "fast_repairs", "pit", "garage", "incidents", "incident_limit"]),
     ];
 
     private static readonly (string Sep, string Label)[] Seps =
