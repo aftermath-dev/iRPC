@@ -1,6 +1,8 @@
 ---
 import virustotal from "../data/virustotal.json";
 
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 const downloadUrl = "https://github.com/aftermath-dev/iRPC/releases/latest/download/iRPC.exe";
 const repoUrl = "https://github.com/aftermath-dev/iRPC";
 
@@ -48,11 +50,11 @@ const features = [
 ];
 
 const screenshots = [
-  { src: "/images/preview.png", alt: "Discord Rich Presence preview" },
-  { src: "/images/preview_settings_chipeditor.png", alt: "Presence chip editor" },
-  { src: "/images/preview_settings_icons.png", alt: "Icon settings" },
-  { src: "/images/preview_stats.png", alt: "Stats window" },
-  { src: "/images/preview_tray.png", alt: "Tray menu" },
+  { src: `${base}/images/preview.png`, alt: "Discord Rich Presence preview" },
+  { src: `${base}/images/preview_settings_chipeditor.png`, alt: "Presence chip editor" },
+  { src: `${base}/images/preview_settings_icons.png`, alt: "Icon settings" },
+  { src: `${base}/images/preview_stats.png`, alt: "Stats window" },
+  { src: `${base}/images/preview_tray.png`, alt: "Tray menu" },
 ];
 ---
 
@@ -60,7 +62,7 @@ const screenshots = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/png" href="/images/irpc_logo.png" />
+    <link rel="icon" type="image/png" href={`${base}/images/irpc_logo.png`} />
     <title>iRPC - iRacing Discord Rich Presence</title>
     <meta
       name="description"
@@ -71,7 +73,7 @@ const screenshots = [
     <header class="hero">
       <div class="hero-inner">
         <h1>
-          <img class="wordmark" src="/images/irpc-wordmark.svg" alt="iRPC" />
+          <img class="wordmark" src={`${base}/images/irpc-wordmark.svg`} alt="iRPC" />
         </h1>
         <p class="tagline">Your live iRacing session, right on your Discord profile.</p>
         <p class="subtagline">
