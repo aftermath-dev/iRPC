@@ -1,0 +1,360 @@
+---
+import virustotal from "../data/virustotal.json";
+
+const downloadUrl = "https://github.com/aftermath-dev/iRPC/releases/latest/download/iRPC.exe";
+const repoUrl = "https://github.com/aftermath-dev/iRPC";
+
+const features = [
+  {
+    title: "Live session info in Discord",
+    body: "Track, car, session type, position, laps, time remaining, speed, fuel, last/best lap, weather, flags, pit and garage status.",
+  },
+  {
+    title: "iRating and Strength of Field",
+    body: "Your live iRating, rolling averages (last 5 / 10 / custom races), and SoF using iRacing's own formula.",
+  },
+  {
+    title: "Safety Rating tracking",
+    body: "Current SR plus rolling averages over the last 5, 10, or a custom number of races.",
+  },
+  {
+    title: "Pit and damage tracking",
+    body: "Repair time remaining, fast repairs used/available, incident count.",
+  },
+  {
+    title: "Per-session templates",
+    body: "Practice, Qualify, Race, Test Drive, and Time Trial each get their own layout.",
+  },
+  {
+    title: "Chip template editor",
+    body: "Click chips to build your presence, grouped by category with tooltips on each one. Classic text editor also available if you prefer it.",
+  },
+  {
+    title: "Track and car brand logos",
+    body: "Pulled directly from GitHub - no Discord asset limit.",
+  },
+  {
+    title: "Presence presets",
+    body: "Save and switch between layouts instantly from the tray menu. Eight built-in presets included, plus export/import to share your own.",
+  },
+  {
+    title: "Stats window",
+    body: "Tracks your total time on track broken down by session type, car, and track.",
+  },
+  {
+    title: "Self-updating",
+    body: "Checks GitHub Releases, downloads, verifies, and installs with one click.",
+  },
+];
+
+const screenshots = [
+  { src: "/images/preview.png", alt: "Discord Rich Presence preview" },
+  { src: "/images/preview_settings_chipeditor.png", alt: "Presence chip editor" },
+  { src: "/images/preview_settings_icons.png", alt: "Icon settings" },
+  { src: "/images/preview_stats.png", alt: "Stats window" },
+  { src: "/images/preview_tray.png", alt: "Tray menu" },
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="/images/irpc_logo.png" />
+    <title>iRPC - iRacing Discord Rich Presence</title>
+    <meta
+      name="description"
+      content="iRPC is a lightweight Windows tray app that shows your live iRacing session as Discord Rich Presence."
+    />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero-inner">
+        <h1>
+          <img class="wordmark" src="/images/irpc-wordmark.svg" alt="iRPC" />
+        </h1>
+        <p class="tagline">Your live iRacing session, right on your Discord profile.</p>
+        <p class="subtagline">
+          Track, car, position, lap progress, fuel, weather, iRating and more - all fully
+          customizable.
+        </p>
+        <div class="cta-row">
+          <a class="button primary" href={downloadUrl}>Download for Windows</a>
+          <a class="button secondary" href={repoUrl}>View on GitHub</a>
+        </div>
+        <p class="fine-print">
+          Windows 10/11 · .NET 8 Desktop Runtime · No installer required
+          {
+            virustotal.url && (
+              <>
+                {" "}
+                · Windows SmartScreen may warn since iRPC isn't code-signed —{" "}
+                <a class="vt-link" href={virustotal.url}>
+                  see the scan report
+                </a>
+              </>
+            )
+          }
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <section class="screenshots" aria-label="Screenshots">
+        <div class="screenshot-row">
+          {
+            screenshots.map((shot) => (
+              <img src={shot.src} alt={shot.alt} loading="lazy" />
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="features">
+        <h2>Features</h2>
+        <div class="feature-grid">
+          {
+            features.map((feature) => (
+              <div class="feature-card">
+                <h3>{feature.title}</h3>
+                <p>{feature.body}</p>
+              </div>
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="download">
+        <h2>Get started</h2>
+        <p>Download the exe, run it, and open iRacing. That's it.</p>
+        <a class="button primary" href={downloadUrl}>Download iRPC.exe</a>
+      </section>
+    </main>
+
+    <footer>
+      <p><a href={repoUrl}>aftermath-dev/iRPC</a> · Not affiliated with iRacing or Discord</p>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    color-scheme: dark;
+    /* Matches the app UI's own dark theme (UI/DarkDropDown.cs, UI/ChipTemplateEditor.cs) */
+    --bg: #1e1f22;
+    --bg-alt: #202124;
+    --card: #2b2d31;
+    --border: #3c3e44;
+    --text: #dbdee1;
+    --text-dim: #949ba4;
+    --accent: #5865f2;
+    --accent-strong: #4752c4;
+    --accent-fg: #ffffff;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+      sans-serif;
+    line-height: 1.5;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  h1,
+  h2,
+  h3 {
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  .hero {
+    background:
+      radial-gradient(60% 60% at 50% 0%, rgba(88, 101, 242, 0.18), transparent 70%), var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 5rem 1.5rem 4rem;
+    text-align: center;
+  }
+
+  .hero-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .hero h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  .wordmark {
+    width: min(360px, 70vw);
+    height: auto;
+    display: block;
+  }
+
+  .tagline {
+    font-size: 1.35rem;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .subtagline {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    max-width: 560px;
+    margin: 0;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1.25rem;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 0.85rem 1.75rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: transform 0.12s ease, filter 0.12s ease;
+    border: 1px solid transparent;
+  }
+
+  .button:hover {
+    transform: translateY(-1px);
+  }
+
+  .button.primary {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  .button.primary:hover {
+    filter: brightness(1.05);
+  }
+
+  .button.secondary {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .button.secondary:hover {
+    border-color: var(--accent);
+  }
+
+  .fine-print {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+  }
+
+  .vt-link {
+    color: var(--text-dim);
+    text-decoration: underline;
+  }
+
+  .vt-link:hover {
+    color: var(--text);
+  }
+
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .screenshots {
+    padding: 3.5rem 0;
+  }
+
+  .screenshot-row {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .screenshot-row img {
+    height: 320px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    background: var(--bg-alt);
+  }
+
+  .features {
+    padding: 3rem 0;
+  }
+
+  .features h2,
+  .download h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1.75rem;
+    text-align: center;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.4rem;
+  }
+
+  .feature-card h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .feature-card p {
+    color: var(--text-dim);
+    font-size: 0.92rem;
+    margin: 0;
+  }
+
+  .download {
+    text-align: center;
+    padding: 4rem 0 5rem;
+  }
+
+  .download p {
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+</style>
