@@ -1,0 +1,96 @@
+name: VirusTotal Scan
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to scan (leave blank for the latest release)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          if [ -z "$tag" ]; then
+            tag="${{ github.event.inputs.release_tag }}"
+          fi
+          if [ -z "$tag" ]; then
+            tag=$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName)
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Download release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ steps.release.outputs.tag }}" --repo "${{ github.repository }}" --pattern "iRPC.exe" --output iRPC.exe
+
+      - name: Compute SHA256
+        id: hash
+        run: echo "sha256=$(sha256sum iRPC.exe | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Submit to VirusTotal
+        id: submit
+        env:
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          response=$(curl -s -X POST "https://www.virustotal.com/api/v3/files" \
+            -H "x-apikey: $VT_API_KEY" \
+            -F "file=@iRPC.exe")
+          analysis_id=$(echo "$response" | jq -r '.data.id')
+          if [ -z "$analysis_id" ] || [ "$analysis_id" = "null" ]; then
+            echo "Upload failed: $response"
+            exit 1
+          fi
+          echo "analysis_id=$analysis_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for analysis to complete
+        env:
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          for i in $(seq 1 30); do
+            status=$(curl -s "https://www.virustotal.com/api/v3/analyses/${{ steps.submit.outputs.analysis_id }}" \
+              -H "x-apikey: $VT_API_KEY" | jq -r '.data.attributes.status')
+            echo "Status: $status"
+            if [ "$status" = "completed" ]; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Analysis did not complete in time; report link will still work once VirusTotal finishes."
+
+      - name: Write report link
+        run: |
+          cat > site/src/data/virustotal.json <<EOF
+          {
+            "url": "https://www.virustotal.com/gui/file/${{ steps.hash.outputs.sha256 }}",
+            "version": "${{ steps.release.outputs.tag }}"
+          }
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/src/data/virustotal.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update VirusTotal scan link for ${{ steps.release.outputs.tag }}"
+            git push origin main
+          fi
