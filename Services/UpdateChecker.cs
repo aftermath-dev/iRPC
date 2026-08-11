@@ -7,16 +7,11 @@ namespace iRPC;
 
 public static class UpdateChecker
 {
-    private static readonly HttpClient _http = CreateClient();
+    private static readonly HttpClient _http = new();
     private const string ApiUrl     = "https://api.github.com/repos/aftermath-dev/iRPC/releases/latest";
     private const string ReleasesUrl = "https://github.com/aftermath-dev/iRPC/releases/latest";
 
-    private static HttpClient CreateClient()
-    {
-        var client = new HttpClient();
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("iRPC");
-        return client;
-    }
+    static UpdateChecker() => _http.DefaultRequestHeaders.UserAgent.ParseAdd("iRPC");
 
     public static Version CurrentVersion =>
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
