@@ -89,27 +89,10 @@ public static class KeyOverrides
         Save(_map);
     }
 
-    private static Dictionary<string, string> Load()
-    {
-        try
-        {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<Dictionary<string, string>>(
-                    File.ReadAllText(FilePath)) ?? new();
-        }
-        catch { }
-        return new();
-    }
+    private static Dictionary<string, string> Load() =>
+        ResilientJson.Load<Dictionary<string, string>>(FilePath);
 
-    private static void Save(Dictionary<string, string> map)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        string json = JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true });
-
-        string tempPath = FilePath + ".tmp";
-        File.WriteAllText(tempPath, json);
-        File.Move(tempPath, FilePath, overwrite: true);
-    }
+    private static void Save(Dictionary<string, string> map) => ResilientJson.Save(FilePath, map);
 
     private static string Sanitize(string name)
     {

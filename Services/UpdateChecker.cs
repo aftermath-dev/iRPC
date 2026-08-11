@@ -11,12 +11,13 @@ public static class UpdateChecker
     private const string ApiUrl     = "https://api.github.com/repos/aftermath-dev/iRPC/releases/latest";
     private const string ReleasesUrl = "https://github.com/aftermath-dev/iRPC/releases/latest";
 
+    static UpdateChecker() => _http.DefaultRequestHeaders.UserAgent.ParseAdd("iRPC");
+
     public static Version CurrentVersion =>
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
 
     public static async Task<UpdateResult> CheckAsync()
     {
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("iRPC");
         string json = await _http.GetStringAsync(ApiUrl);
         using var doc = JsonDocument.Parse(json);
 

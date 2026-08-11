@@ -366,6 +366,11 @@ public class DiscordService : IDisposable
     private static readonly Dictionary<string, int> SeriesBrandWordIndex =
         new(StringComparer.OrdinalIgnoreCase) { ["arca"] = 2 };
 
+    // Cars whose CarScreenNameShort leads with a model name instead of the manufacturer
+    // (e.g. "MX-5 Cup" has no "Mazda" in it) — map the derived first-word key to the real brand.
+    private static readonly Dictionary<string, string> BrandAliases =
+        new(StringComparer.OrdinalIgnoreCase) { ["mx_5"] = "mazda" };
+
     private static string? BrandUrl(string carName, string carCodeName)
     {
         // Primary: look up by car codename leaf (e.g. "stockcars\camarozl12018" → "camarozl12018").
@@ -392,6 +397,9 @@ public class DiscordService : IDisposable
             lookupKey = AssetKey($"{words[0]} {words[1]}") ?? firstKey;
         else
             lookupKey = firstKey;
+
+        if (BrandAliases.TryGetValue(lookupKey, out string? alias))
+            lookupKey = alias;
 
         string mapped = KeyOverrides.Apply($"brand_{lookupKey}");
         return $"{AssetBase}/Brands/{mapped}.png";

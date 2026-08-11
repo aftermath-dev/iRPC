@@ -82,16 +82,47 @@ public static class StatsTracker
     private static void Increment(Dictionary<string, ulong> map, string key, ulong delta = 1) =>
         map[key] = map.GetValueOrDefault(key) + delta;
 
+    private static readonly string BackupPath = FilePath + ".bak";
+    private static readonly string CorruptPath = FilePath + ".corrupt";
+
     private static StatsData Load()
     {
+        if (!File.Exists(FilePath)) return new();
+
+        if (TryLoadFrom(FilePath, out var data, out string? failure))
+            return data!;
+
+        LogLoadFailure(FilePath, failure!);
+
+        // Main file is bad — fall back to the last known-good backup before giving up.
+        if (File.Exists(BackupPath) && TryLoadFrom(BackupPath, out data, out failure))
+        {
+            LogLoadFailure(BackupPath, "recovered from backup after main file failed");
+            return data!;
+        }
+        if (File.Exists(BackupPath))
+            LogLoadFailure(BackupPath, failure!);
+
+        // Preserve the unreadable file for inspection instead of silently overwriting it.
+        try { File.Copy(FilePath, CorruptPath, overwrite: true); } catch { }
+
+        return new();
+    }
+
+    private static bool TryLoadFrom(string path, out StatsData? data, out string? failure)
+    {
+        data = null;
+        failure = null;
         try
         {
-            if (!File.Exists(FilePath)) return new();
-            string raw = File.ReadAllText(FilePath);
+            string raw = File.ReadAllText(path);
 
             // Legacy plain JSON (pre-signature) — accept once, will be re-saved signed.
             if (raw.TrimStart().StartsWith('{') && !raw.Contains("\"d\""))
-                return JsonSerializer.Deserialize<StatsData>(raw) ?? new();
+            {
+                data = JsonSerializer.Deserialize<StatsData>(raw) ?? new();
+                return true;
+            }
 
             using var doc = JsonDocument.Parse(raw);
             string dataB64 = doc.RootElement.GetProperty("d").GetString() ?? "";
@@ -102,25 +133,58 @@ public static class StatsTracker
             if (!CryptographicOperations.FixedTimeEquals(
                     Convert.FromHexString(storedSig),
                     Convert.FromHexString(expectedSig)))
-                return new();
+            {
+                failure = "signature mismatch";
+                return false;
+            }
 
-            return JsonSerializer.Deserialize<StatsData>(dataBytes) ?? new();
+            data = JsonSerializer.Deserialize<StatsData>(dataBytes) ?? new();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            failure = ex.GetType().Name + ": " + ex.Message;
+            return false;
+        }
+    }
+
+    // Written independent of Debug Mode/Logger.Enabled so a load failure leaves a trace even
+    // when the user never turned on debug logging.
+    private static void LogLoadFailure(string path, string reason)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+            File.AppendAllText(FilePath + ".load-errors.log",
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {path}: {reason}{Environment.NewLine}");
         }
         catch { }
-        return new();
     }
 
     private static void Save(StatsData data)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        byte[] dataBytes = JsonSerializer.SerializeToUtf8Bytes(data);
-        string dataB64   = Convert.ToBase64String(dataBytes);
-        string sig       = Sign(dataBytes);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+            byte[] dataBytes = JsonSerializer.SerializeToUtf8Bytes(data);
+            string dataB64   = Convert.ToBase64String(dataBytes);
+            string sig       = Sign(dataBytes);
 
-        string json = JsonSerializer.Serialize(new { d = dataB64, s = sig });
-        string tempPath = FilePath + ".tmp";
-        File.WriteAllText(tempPath, json);
-        File.Move(tempPath, FilePath, overwrite: true);
+            string json = JsonSerializer.Serialize(new { d = dataB64, s = sig });
+            string tempPath = FilePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+
+            // Roll the current (about-to-be-replaced) good file into the backup slot first,
+            // so a failed read always has a known-good fallback to recover from.
+            if (File.Exists(FilePath))
+                File.Copy(FilePath, BackupPath, overwrite: true);
+
+            File.Move(tempPath, FilePath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            LogLoadFailure(FilePath, "save failed: " + ex.GetType().Name + ": " + ex.Message);
+        }
     }
 
     private static string Sign(byte[] data)

@@ -247,7 +247,7 @@ public class TrayApp : ApplicationContext
             if (result.HasUpdate)
             {
                 var answer = MessageBox.Show(
-                    $"v{result.LatestTag} is available (you have v{UpdateChecker.CurrentVersion.ToString(3)}).\n\nDownload and install it now? iRPC will restart.",
+                    $"{result.LatestTag} is available (you have v{UpdateChecker.CurrentVersion.ToString(3)}).\n\nDownload and install it now? iRPC will restart.",
                     "iRPC Update Available",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information);

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace iRPC;
@@ -69,37 +68,16 @@ public class AppSettings
 
     public static AppSettings Load()
     {
-        try
-        {
-            if (File.Exists(FilePath))
-            {
-                var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new();
-                foreach (var kv in DefaultTemplates)
-                    loaded.SessionTemplates.TryAdd(kv.Key, kv.Value);
-                loaded.SessionTemplates.Remove("Default");
-                foreach (var kv in DefaultPresets)
-                    loaded.Presets.TryAdd(kv.Key, kv.Value);
-                return loaded;
-            }
-        }
-        catch { }
-        return new();
+        var loaded = ResilientJson.Load<AppSettings>(FilePath);
+        foreach (var kv in DefaultTemplates)
+            loaded.SessionTemplates.TryAdd(kv.Key, kv.Value);
+        loaded.SessionTemplates.Remove("Default");
+        foreach (var kv in DefaultPresets)
+            loaded.Presets.TryAdd(kv.Key, kv.Value);
+        return loaded;
     }
 
-    public void Save()
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-
-            // Write-then-rename so a crash/power loss mid-write can't leave a truncated settings.json.
-            string tempPath = FilePath + ".tmp";
-            File.WriteAllText(tempPath, json);
-            File.Move(tempPath, FilePath, overwrite: true);
-        }
-        catch { }
-    }
+    public void Save() => ResilientJson.Save(FilePath, this);
 
     public static readonly Dictionary<string, SessionPresenceConfig> DefaultTemplates = new()
     {
