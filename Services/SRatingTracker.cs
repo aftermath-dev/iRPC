@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace iRPC;
 
 public static class SRatingTracker
@@ -43,23 +41,7 @@ public static class SRatingTracker
         }
     }
 
-    private static SRatingHistory Load()
-    {
-        try
-        {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<SRatingHistory>(File.ReadAllText(FilePath)) ?? new();
-        }
-        catch { }
-        return new();
-    }
+    private static SRatingHistory Load() => ResilientJson.Load<SRatingHistory>(FilePath);
 
-    private static void Save(SRatingHistory data)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-        string tempPath = FilePath + ".tmp";
-        File.WriteAllText(tempPath, json);
-        File.Move(tempPath, FilePath, overwrite: true);
-    }
+    private static void Save(SRatingHistory data) => ResilientJson.Save(FilePath, data);
 }

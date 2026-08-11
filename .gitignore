@@ -6,3 +6,5 @@ obj/
 *.suo
 *.DS_Store
 CLAUDE.md
+.claude/
+CHANGELOG.md

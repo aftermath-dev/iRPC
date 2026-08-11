@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace iRPC;
 
 // Records the player's iRating at the end of each Race session (detected via the checkered-flag
@@ -48,24 +46,7 @@ public static class IRatingTracker
         }
     }
 
-    private static IRatingHistory Load()
-    {
-        try
-        {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<IRatingHistory>(File.ReadAllText(FilePath)) ?? new();
-        }
-        catch { }
-        return new();
-    }
+    private static IRatingHistory Load() => ResilientJson.Load<IRatingHistory>(FilePath);
 
-    private static void Save(IRatingHistory data)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-
-        string tempPath = FilePath + ".tmp";
-        File.WriteAllText(tempPath, json);
-        File.Move(tempPath, FilePath, overwrite: true);
-    }
+    private static void Save(IRatingHistory data) => ResilientJson.Save(FilePath, data);
 }
