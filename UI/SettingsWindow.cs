@@ -141,7 +141,7 @@ public class SettingsWindow : Form
         Load += (_, _) => SetWindowTheme(scroll.Handle, "DarkMode_Explorer", null);
 
         const int x = 16;
-        int y = 12;
+        int y = 20;
 
         // ── Presence section ─────────────────────────────────────
         int presenceY = y;
@@ -153,9 +153,9 @@ public class SettingsWindow : Form
         _btnResetPresence.Click += OnResetPresence;
 
         FieldLabel(scroll, "Preset", x, ref y);
-        scroll.Controls.Add(new Label { Text = "Built-in", Left = x,       Top = y, Width = 200, ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f), AutoSize = false });
-        scroll.Controls.Add(new Label { Text = "Custom",   Left = x + 208, Top = y, Width = 200, ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f), AutoSize = false });
-        y += 13;
+        scroll.Controls.Add(new Label { Text = "Built-in", Left = x,       Top = y, Width = 200, Height = 14, ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f), AutoSize = false });
+        scroll.Controls.Add(new Label { Text = "Custom",   Left = x + 208, Top = y, Width = 200, Height = 14, ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f), AutoSize = false });
+        y += 16;
 
         string[] builtInPresetNames = [.. AppSettings.DefaultPresets.Keys];
         string[] customPresetNames  = [.. _presets.Keys.Where(k => !AppSettings.DefaultPresets.ContainsKey(k))];
@@ -503,6 +503,7 @@ public class SettingsWindow : Form
         };
         scroll.Controls.Add(btnOpenFolder);
         y += 34;
+        scroll.Controls.Add(new Panel { Left = 0, Top = y, Width = 1, Height = 12 }); // bottom padding: AutoScroll ends at last control
 
         // ── Bottom bar ───────────────────────────────────────────
         var bar = new Panel { Left = 0, Top = 666, Width = 520, Height = 44, BackColor = Color.FromArgb(30, 31, 34) };
