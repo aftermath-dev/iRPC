@@ -157,6 +157,7 @@ public class IracingService : IDisposable
         if (!string.IsNullOrEmpty(yaml) && yaml != _lastYaml)
         {
             _lastYaml = yaml;
+            _lastResolvedCarIdx = -1; // car swap in same session keeps carIdx but changes driver YAML
             RefreshStaticData(yaml, sessionNum);
             _seriesName  = IracingYaml.GetValue(yaml, "SeriesName") ?? string.Empty;
             _sessionType = FormatSessionType(IracingYaml.GetSessionValue(yaml, sessionNum, "SessionType"));

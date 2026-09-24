@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace iRPC;
@@ -36,9 +37,13 @@ public class AppSettings
     public int IRatingAvgCustomWindow { get; set; } = 20;
     public int SRatingAvgCustomWindow { get; set; } = 20;
     public bool WidgetEnabled { get; set; } = false;
+    [JsonConverter(typeof(ProtectedStringConverter))]
     public string DiscordWidgetBotToken { get; set; } = string.Empty;
+    [JsonConverter(typeof(ProtectedStringConverter))]
     public string DiscordClientSecret { get; set; } = string.Empty;
+    [JsonConverter(typeof(ProtectedStringConverter))]
     public string DiscordBotToken { get; set; } = string.Empty;
+    [JsonConverter(typeof(ProtectedStringConverter))]
     public string DiscordRefreshToken { get; set; } = string.Empty;
     public long DiscordTokenExpiry { get; set; } = 0;
     public string DiscordUserId { get; set; } = string.Empty;
@@ -172,5 +177,35 @@ public class AppSettings
             ["Test Drive"] = cfg,
             ["Time Trial"] = cfg,
         };
+    }
+}
+
+// Encrypts secrets with Windows DPAPI (current user) on save. Values saved before
+// encryption existed have no prefix and are read as plain text, then encrypted on next save.
+public class ProtectedStringConverter : JsonConverter<string>
+{
+    private const string Prefix = "dpapi:";
+
+    public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        string value = reader.GetString() ?? string.Empty;
+        if (!value.StartsWith(Prefix)) return value;
+        try
+        {
+            byte[] plain = System.Security.Cryptography.ProtectedData.Unprotect(
+                Convert.FromBase64String(value[Prefix.Length..]), null,
+                System.Security.Cryptography.DataProtectionScope.CurrentUser);
+            return System.Text.Encoding.UTF8.GetString(plain);
+        }
+        catch { return string.Empty; } // settings copied from another user/PC: re-enter secret
+    }
+
+    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+    {
+        if (string.IsNullOrEmpty(value)) { writer.WriteStringValue(value); return; }
+        byte[] cipher = System.Security.Cryptography.ProtectedData.Protect(
+            System.Text.Encoding.UTF8.GetBytes(value), null,
+            System.Security.Cryptography.DataProtectionScope.CurrentUser);
+        writer.WriteStringValue(Prefix + Convert.ToBase64String(cipher));
     }
 }

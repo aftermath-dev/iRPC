@@ -160,12 +160,11 @@ public static class UpdateChecker
                 }
             }
 
-            if (result.AssetDigest is not null)
-            {
-                string computed = Convert.ToHexString(hasher.GetHashAndReset()).ToLowerInvariant();
-                if (!computed.Equals(result.AssetDigest, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Downloaded file failed integrity check — checksum mismatch.");
-            }
+            if (result.AssetDigest is null)
+                throw new InvalidOperationException("Release has no checksum, refusing to install.");
+            string computed = Convert.ToHexString(hasher.GetHashAndReset()).ToLowerInvariant();
+            if (!computed.Equals(result.AssetDigest, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Downloaded file failed integrity check — checksum mismatch.");
         }
         catch
         {

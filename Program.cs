@@ -17,7 +17,9 @@ static class Program
 
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        Application.SetHighDpiMode(HighDpiMode.SystemAware);
+        // ponytail: layouts use fixed 96-DPI pixels, so let Windows scale the whole UI (GDI text stays crisp).
+        // Per-control DPI scaling (AutoScaleMode.Dpi + custom controls) is the upgrade if blur bothers anyone.
+        Application.SetHighDpiMode(HighDpiMode.DpiUnawareGdiScaled);
 
         Application.ThreadException += (_, e) => LogUnhandled(e.Exception, fatal: false);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => LogUnhandled(e.ExceptionObject as Exception, fatal: true);

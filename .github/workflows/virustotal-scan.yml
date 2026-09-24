@@ -25,20 +25,23 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          tag="${{ github.event.release.tag_name }}"
+          tag="$EVENT_TAG"
           if [ -z "$tag" ]; then
-            tag="${{ github.event.inputs.release_tag }}"
+            tag="$INPUT_TAG"
           fi
           if [ -z "$tag" ]; then
             tag=$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName)
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
 
       - name: Download release asset
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download "${{ steps.release.outputs.tag }}" --repo "${{ github.repository }}" --pattern "iRPC.exe" --output iRPC.exe
+        run: gh release download "$TAG" --repo "${{ github.repository }}" --pattern "iRPC.exe" --output iRPC.exe
 
       - name: Compute SHA256
         id: hash
@@ -79,7 +82,7 @@ jobs:
           cat > site/src/data/virustotal.json <<EOF
           {
             "url": "https://www.virustotal.com/gui/file/${{ steps.hash.outputs.sha256 }}",
-            "version": "${{ steps.release.outputs.tag }}"
+            "version": "$TAG"
           }
           EOF
 
@@ -91,6 +94,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update VirusTotal scan link for ${{ steps.release.outputs.tag }}"
+            git commit -m "Update VirusTotal scan link for $TAG"
             git push origin main
           fi

@@ -44,6 +44,7 @@ public class WidgetLinkWindow : Form
     private readonly Button _btnTryAgain;
 
     private CancellationTokenSource? _cts;
+    private string _state = "";
 
     public WidgetLinkWindow(string appId, string clientSecret,
         Action<string, string, long, string> onLinked)
@@ -125,6 +126,7 @@ public class WidgetLinkWindow : Form
 
     private async void OnStart(object? sender, EventArgs e)
     {
+        _state = Guid.NewGuid().ToString("N");
         ShowStep(_stepWaiting);
         OpenBrowser();
         _cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
@@ -153,7 +155,8 @@ public class WidgetLinkWindow : Form
                      $"?client_id={_appId}" +
                      $"&response_type=token" +
                      $"&redirect_uri={redirectUri}" +
-                     $"&scope={scope}";
+                     $"&scope={scope}" +
+                     $"&state={_state}";
 
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             { FileName = url, UseShellExecute = true });
@@ -162,66 +165,60 @@ public class WidgetLinkWindow : Form
     // Implicit grant returns the token in the URL fragment (#access_token=...).
     // Browsers strip the fragment before sending the request to the server, so we
     // serve a tiny JS page that reads the fragment and fires a second GET to /token.
-    private static async Task<(string token, int expiresIn)> WaitForTokenAsync(CancellationToken ct)
+    // The state check stops other pages from pushing their own token into the listener.
+    private async Task<(string token, int expiresIn)> WaitForTokenAsync(CancellationToken ct)
     {
         using var listener = new TcpListener(System.Net.IPAddress.Loopback, ListenPort);
         listener.Start();
         using var reg = ct.Register(() => listener.Stop());
 
-        // Request 1: browser hits /callback — serve JS bridge page
-        var client1 = await listener.AcceptTcpClientAsync(ct);
-        using (client1)
-        {
-            using var s = client1.GetStream();
-            var buf = new byte[4096];
-            await s.ReadAsync(buf, 0, buf.Length, ct);
+        string html =
+            "<html><body style='background:#2b2d31;color:#dbdee1;font-family:Segoe UI;" +
+            "display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>" +
+            "<h2 id='m'>Authorizing...</h2><script>" +
+            "var p=new URLSearchParams(location.hash.slice(1));" +
+            "var t=p.get('access_token'),e=p.get('expires_in')||'604800',st=p.get('state')||'';" +
+            "if(t){var i=new Image();" +
+            $"i.src='http://localhost:{ListenPort}/token?t='+encodeURIComponent(t)+'&e='+e+'&s='+encodeURIComponent(st);" +
+            "i.onload=i.onerror=function(){document.getElementById('m').textContent=" +
+            "'✓ Authorized! You can close this tab.';document.getElementById('m').style.color='#57f287';};" +
+            "}else{document.getElementById('m').textContent='Authorization failed. Return to iRPC.';" +
+            "document.getElementById('m').style.color='#f04747';}" +
+            "</script></body></html>";
+        byte[] htmlBytes = Encoding.UTF8.GetBytes(html);
 
-            string html =
-                "<html><body style='background:#2b2d31;color:#dbdee1;font-family:Segoe UI;" +
-                "display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>" +
-                "<h2 id='m'>Authorizing...</h2><script>" +
-                "var p=new URLSearchParams(location.hash.slice(1));" +
-                "var t=p.get('access_token'),e=p.get('expires_in')||'604800';" +
-                "if(t){var i=new Image();" +
-                $"i.src='http://localhost:{ListenPort}/token?t='+encodeURIComponent(t)+'&e='+e;" +
-                "i.onload=i.onerror=function(){document.getElementById('m').textContent=" +
-                "'✓ Authorized! You can close this tab.';document.getElementById('m').style.color='#57f287';};" +
-                "}else{document.getElementById('m').textContent='Authorization failed. Return to iRPC.';" +
-                "document.getElementById('m').style.color='#f04747';}" +
-                "</script></body></html>";
-            byte[] htmlBytes = Encoding.UTF8.GetBytes(html);
-            byte[] header    = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n" +
-                $"Content-Length: {htmlBytes.Length}\r\nConnection: close\r\n\r\n");
-            await s.WriteAsync(header, ct);
-            await s.WriteAsync(htmlBytes, ct);
-        }
-
-        // Request 2: JS fires GET /token?t=TOKEN&e=EXPIRES_IN
-        var client2 = await listener.AcceptTcpClientAsync(ct);
-        using (client2)
+        while (true)
         {
-            using var s = client2.GetStream();
+            using var client = await listener.AcceptTcpClientAsync(ct);
+            using var s = client.GetStream();
             var buf = new byte[8192];
             int n = await s.ReadAsync(buf, 0, buf.Length, ct);
-            string req      = Encoding.ASCII.GetString(buf, 0, n);
-            string firstLine = req.Split('\r', '\n')[0];
+            string firstLine = Encoding.ASCII.GetString(buf, 0, n).Split('\r', '\n')[0];
             string[] parts   = firstLine.Split(' ');
             string pathAndQuery = parts.Length > 1 ? parts[1] : "";
             int q = pathAndQuery.IndexOf('?');
+            string path  = q >= 0 ? pathAndQuery[..q] : pathAndQuery;
             string query = q >= 0 ? pathAndQuery[(q + 1)..] : "";
 
-            string? token     = QueryParam(query, "t");
-            string? expiresStr = QueryParam(query, "e");
+            if (path == "/callback")
+            {
+                byte[] header = Encoding.ASCII.GetBytes(
+                    $"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n" +
+                    $"Content-Length: {htmlBytes.Length}\r\nConnection: close\r\n\r\n");
+                await s.WriteAsync(header, ct);
+                await s.WriteAsync(htmlBytes, ct);
+                continue;
+            }
 
-            byte[] ok = Encoding.ASCII.GetBytes(
-                "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-            await s.WriteAsync(ok, ct);
+            string? token = path == "/token" && QueryParam(query, "s") == _state
+                ? QueryParam(query, "t") : null;
+            string status = token is null ? "404 Not Found" : "200 OK";
+            await s.WriteAsync(Encoding.ASCII.GetBytes(
+                $"HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"), ct);
 
-            if (string.IsNullOrWhiteSpace(token))
-                throw new Exception("No token received from browser.");
+            if (string.IsNullOrWhiteSpace(token)) continue;
 
-            int expiresIn = int.TryParse(expiresStr, out int ei) ? ei : 604800;
+            int expiresIn = int.TryParse(QueryParam(query, "e"), out int ei) ? ei : 604800;
             return (token, expiresIn);
         }
     }

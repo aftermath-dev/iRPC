@@ -4,6 +4,7 @@
     "car_acuransxevo22gt3"
   ],
   "brand_aston_martin": [
+    "car_amvalkyriegtp",
     "car_amvantageevogt3",
     "car_amvantagegt4",
     "car_dbr9"
@@ -41,6 +42,10 @@
     "car_latemodel",
     "car_latemodel2023",
     "car_superlatemodel"
+  ],
+  "brand_caterham": [
+    "car_caterham420r",
+    "car_caterhamacademy"
   ],
   "brand_chevrolet": [
     "car_c6r",
